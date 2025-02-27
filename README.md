@@ -8,3 +8,9 @@ The server should run an api that will receive the camera feed and sends it to t
 
 The ORS will be written in haskell and will be the main focus of this project.
 
+## How to run
+Download all the files from https://github.com/golbin/TensorFlow-MNIST/tree/master/mnist/data
+
+Put these in the root of the project `numberguesser/<files here>`
+
+Then run `cd` into `numberguesser/` and type `stack run` and you should see the training progress. It will run for about 1 minute and then show the accuracy of the model.

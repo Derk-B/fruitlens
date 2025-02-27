@@ -1,3 +1,7 @@
+# Data files
+*.gz
+
+# Haskell related files
 dist
 dist-*
 cabal-dev
