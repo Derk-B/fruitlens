@@ -8,6 +8,11 @@ The server should run an api that will receive the camera feed and sends it to t
 
 The ORS will be written in haskell and will be the main focus of this project.
 
+## Requirements
+This project uses *stack* to build and run. The easiest way to install this is using *ghcup*.
+
+This project runs on *GHC 9.4.8*. If you don't have this installed, then stack should automatically install this GHC version when you run the project.
+
 ## How to run
 Download all the files from https://github.com/golbin/TensorFlow-MNIST/tree/master/mnist/data
 
