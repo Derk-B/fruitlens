@@ -57,7 +57,7 @@ feedForward = foldl' calculateLayerOutput
 
 main :: IO ()
 main = do
-  initModel <- newModel [2, 4, 3]
-  let inputs = [1.0, 2.0]
+  initModel <- newModel [784, 30, 10]
+  let inputs = [1..784]
   let outputs = feedForward inputs initModel
   print outputs
