@@ -38,13 +38,13 @@ type NeuralNetwork = [Layer]
 newModel :: [Int] -> IO NeuralNetwork
 newModel [] = error "newModel: cannot initialize layers with [] as input"
 newModel layers@(_:outputLayers) = do
-  let biases = flip replicate 1 <$> outputLayers
-  let weights = zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) layers outputLayers
-  zip biases <$> weights
+  biases <- mapM (\n -> replicateM n (gauss 0.01)) outputLayers
+  weights <- zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) layers outputLayers
+  return (zip biases weights)
 
--- Activation function
+-- Activation function (ReLu)
 activation :: Float -> Float
-activation x | x > 1      = 1
+activation x | x > 0      = x
              | otherwise  = 0
 
 -- Calculate the weighted sum of the inputs and the weights, and add the biases.
