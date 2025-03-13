@@ -27,13 +27,16 @@ import com.google.accompanist.permissions.shouldShowRationale
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun CameraPreviewScreen(modifier: Modifier = Modifier) {
+fun CameraPreviewScreen(cameraViewModel: CameraPreviewViewModel, modifier: Modifier = Modifier) {
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     if (cameraPermissionState.status.isGranted) {
-        CameraPreviewContent(CameraPreviewViewModel(), modifier)
+        CameraPreviewContent(cameraViewModel, modifier)
     } else {
         Column(
-            modifier = modifier.fillMaxSize().wrapContentSize().widthIn(max = 480.dp),
+            modifier = modifier
+                .fillMaxSize()
+                .wrapContentSize()
+                .widthIn(max = 480.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val textToShow = if (cameraPermissionState.status.shouldShowRationale) {
@@ -62,7 +65,7 @@ fun CameraPreviewScreen(modifier: Modifier = Modifier) {
 fun CameraPreviewContent(
     viewModel: CameraPreviewViewModel,
     modifier: Modifier = Modifier,
-    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
 ) {
     val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val context = LocalContext.current
