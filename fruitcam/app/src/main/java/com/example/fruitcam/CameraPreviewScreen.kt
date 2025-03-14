@@ -29,7 +29,8 @@ import com.google.accompanist.permissions.shouldShowRationale
 @Composable
 fun CameraPreviewScreen(cameraViewModel: CameraPreviewViewModel, modifier: Modifier = Modifier) {
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    if (cameraPermissionState.status.isGranted) {
+    val ioPermissionState = rememberPermissionState(android.Manifest.permission.READ_MEDIA_IMAGES)
+    if (cameraPermissionState.status.isGranted && ioPermissionState.status.isGranted) {
         CameraPreviewContent(cameraViewModel, modifier)
     } else {
         Column(
@@ -54,7 +55,9 @@ fun CameraPreviewScreen(cameraViewModel: CameraPreviewViewModel, modifier: Modif
             }
             Text(textToShow, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { cameraPermissionState.launchPermissionRequest() }) {
+            Button(onClick = { cameraPermissionState.launchPermissionRequest()
+                ioPermissionState.launchPermissionRequest()
+            }) {
                 Text("Unleash the Camera!")
             }
         }

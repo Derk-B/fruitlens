@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.fruitcam.ui.theme.FruitcamTheme
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +47,7 @@ private fun sendImageToServer() {
     Log.d("log", "hallo")
 }
 
+@OptIn(ExperimentalEncodingApi::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun CameraPreview() {
@@ -69,7 +72,11 @@ fun CameraPreview() {
                             cameraViewModel.captureImage(
                                 context,
                                 onImageCaptured = { byteArray ->
+                                    Log.d("log", Base64.Default.encode(byteArray))
+                                    Log.d("log", "${Base64.Default.decode(Base64.Default.encode(byteArray)).size}")
+                                    Log.d("log", Base64.Default.encode(Base64.Default.decode(Base64.Default.encode(byteArray))))
                                     Log.d("log", "got bytes ${byteArray.size}")
+                                    cameraViewModel.saveImageUsingMediaStore(context, byteArray, "testpic")
                                     isProcessing = false
                                 })
                             sendImageToServer()
