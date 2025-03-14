@@ -1,13 +1,61 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main (main) where
 
 import Codec.Compression.GZip (decompress)
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy as BL
 
 import Control.Monad
 import Data.Functor
 import Data.Ord
 import Data.List
 import System.Random
+
+
+-- START SCOTTY API
+import Web.Scotty (ActionM, scotty, post, jsonData, json, get, html, param)
+import Data.Aeson 
+import qualified Data.ByteString.Base64 as B64
+import qualified Data.ByteString as BS 
+import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Base16 as B16
+import Graphics.Gloss 
+import Codec.Picture
+import Data.Vector.Storable (toList)
+import Data.List.Split (chunksOf)
+
+newtype MyImage = MyImage { value :: String } deriving (Show)
+
+instance FromJSON MyImage where
+    parseJSON = withObject "Image" $ \o -> MyImage <$> o .: "image"
+
+instance ToJSON MyImage where 
+    toJSON (MyImage value) = object ["image" .= value]
+
+main :: IO ()
+main = scotty 8080 $ do
+    post "/api/fruitlens" processImage
+        
+processImage :: ActionM ()
+processImage = do
+    (MyImage value) <- jsonData  
+    let decoded = B64.decode (BC.pack value)
+    case decoded of
+        Left err -> Web.Scotty.json $ object ["error" .= ("Invalid Base64: " ++ err)] 
+        Right byteArray -> do 
+          case decodeImage byteArray of
+                Left err -> Web.Scotty.json $ object ["error" .= ("Image decoding failed: " ++ err)]
+                Right dynImage -> do
+                    let converted = convertRGB8 dynImage
+                    let rgbList = toList (imageData converted)
+                    let tupleList = chunksOf 3 rgbList
+                    let tupleList2d = chunksOf (imageWidth converted) tupleList
+                    Web.Scotty.json $ object ["tuples" .= tupleList2d]
+
+ourPicture :: BC.ByteString -> Picture
+ourPicture bitmapData = bitmapOfByteString 863 863 (BitmapFormat TopToBottom PxRGBA) bitmapData True
+
+-- END SCOTTY API
 
 gauss :: Float -> IO Float
 gauss scale = do
@@ -55,9 +103,9 @@ calculateLayerOutput inputs (biases, weigths) = map activation $ zipWith (+) bia
 feedForward :: [Float] -> NeuralNetwork -> [Float]
 feedForward = foldl' calculateLayerOutput
 
-main :: IO ()
-main = do
-  initModel <- newModel [784, 30, 10]
-  let inputs = [1..784]
-  let outputs = feedForward inputs initModel
-  print outputs
+-- main :: IO ()
+-- main = do
+--   initModel <- newModel [784, 30, 10]
+--   let inputs = [1..784]
+--   let outputs = feedForward inputs initModel
+--   print outputs
