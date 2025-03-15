@@ -19,7 +19,6 @@ import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString as BS 
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Base16 as B16
-import Graphics.Gloss 
 import Codec.Picture
 import Data.Vector.Storable (toList)
 import Data.List.Split (chunksOf)
@@ -51,9 +50,6 @@ processImage = do
                     let tupleList = chunksOf 3 rgbList
                     let tupleList2d = chunksOf (imageWidth converted) tupleList
                     Web.Scotty.json $ object ["tuples" .= tupleList2d]
-
-ourPicture :: BC.ByteString -> Picture
-ourPicture bitmapData = bitmapOfByteString 863 863 (BitmapFormat TopToBottom PxRGBA) bitmapData True
 
 -- END SCOTTY API
 
