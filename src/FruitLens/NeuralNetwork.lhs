@@ -170,11 +170,12 @@ input in the next iteration. It only works with fully connected layers and
 gives an error when it encounters another type of layer.
 \begin{code}
 feedForwardFullyConnected :: [Float] -> NeuralNetwork -> [Float]
-feedForwardFullyConnected inputs [] = inputs
-feedForwardFullyConnected inputs (layer:layers) =
-  case layer of
-    FullyConnected fc -> feedForwardFullyConnected (calculateFullyConnectedLayerOutput inputs fc) layers
-    _ -> error "feedForwardFC: Expected only fully connected layers."
+feedForwardFullyConnected =
+  foldl (\acc layer ->
+           case layer of
+             FullyConnected fc -> calculateFullyConnectedLayerOutput acc fc
+             _ -> error "feedForwardFC: Expected only fully connected layers."
+        )
 
 ----------------------------------------------------------------------
 -- Feed forward.
