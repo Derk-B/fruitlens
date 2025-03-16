@@ -1,8 +1,11 @@
 module FruitLens.NeuralNetwork
-  ( NeuralNetwork
+  ( Biases
+  , Weights
+  , Layer
+  , NeuralNetwork
   , newModel
   , activation
-  , calculateFullyConnectedLayerOutput
+  , calculateLayerOutput
   , feedForward
   , predictFruit
   , trainModel
@@ -31,15 +34,9 @@ fruitTypeToString Grape = "grape"
 
 -- | Type aliases for neural network components
 type Biases = [Float]
-type PoolSize = Int
 type Weights = [[Float]]
-type FullyConnectedLayer = (Biases, Weights)
-type ConvolutionalLayer = ([Kernel], Biases)
-data Layer = ConvLayer ConvolutionalLayer | MaxPoolingLayer PoolSize | FullyConnected FullyConnectedLayer
+type Layer = (Biases, Weights)
 type NeuralNetwork = [Layer]
-
-type Image  = [[[Float]]]
-type Kernel = [[Float]]
 
 -- | Create a new neural network model with the given layer sizes
 -- The first element is the number of inputs, and the last element
@@ -61,50 +58,68 @@ sigmoid :: Float -> Float
 sigmoid x = 1 / (1 + exp (-x))
 
 -- | Calculate the output of a single layer
-calculateFullyConnectedLayerOutput :: [Float] -> FullyConnectedLayer -> [Float]
-calculateFullyConnectedLayerOutput inputs (biases, weights) =
+calculateLayerOutput :: [Float] -> Layer -> [Float]
+calculateLayerOutput inputs (biases, weights) = 
   map activation $ zipWith (+) biases $ sum . zipWith (*) inputs <$> weights
 
-convolve :: Image -> Kernel -> Image
-convolve img kernel =
-  let kRows = length kernel
-      kCols = length (head kernel)
-      iRows = length img
-      iCols = length (head img)
-      channels = length (head (head img))
-  in [ [ [ sum [ (kernel !! ki !! kj) * (img !! (i+ki) !! (j+kj) !! c)
-               | ki <- [0 .. kRows - 1]
-               , kj <- [0 .. kCols - 1] ]
-         | c <- [0 .. channels - 1] ]
-       | j <- [0 .. iCols - kCols] ]
-     | i <- [0 .. iRows - kRows] ]
+-- | Feed forward through the entire neural network
+feedForward :: [Float] -> NeuralNetwork -> [Float]
+feedForward = foldl' calculateLayerOutput
 
-randomKernel :: Int -> Int -> IO Kernel
-randomKernel i j = mapM (const (mapM (const (gauss 0.001)) [1..j])) [1..i]
-
-
-
-
-
-
+-- | Extract features from image data
+-- Each pixel is represented as [r,g,b] and the image is a 2D array of pixels
+extractFeatures :: [[[Float]]] -> [Float]
+extractFeatures imageData = 
+  -- Simple feature extraction: average RGB values
+  let totalPixels = length imageData * (if null imageData then 0 else length (head imageData))
+      sumRGB = foldl' (\(r,g,b) row -> 
+                foldl' (\(r',g',b') pixel -> 
+                        case pixel of
+                          [r'',g'',b''] -> (r'+r'', g'+g'', b'+b'')
+                          _ -> (r', g', b')) 
+                       (r,g,b) row) 
+                (0,0,0) imageData
+      (avgR, avgG, avgB) = if totalPixels == 0 
+                           then (0,0,0) 
+                           else let fp = fromIntegral totalPixels
+                                in (fst3 sumRGB / fp, snd3 sumRGB / fp, thd3 sumRGB / fp)
+      -- Calculate color variance as additional features
+      varRGB = foldl' (\(vr,vg,vb) row ->
+                foldl' (\(vr',vg',vb') pixel -> 
+                        case pixel of
+                          [r,g,b] -> (vr' + (r - avgR)^2, 
+                                      vg' + (g - avgG)^2, 
+                                      vb' + (b - avgB)^2)
+                          _ -> (vr', vg', vb')) 
+                       (vr,vg,vb) row)
+                (0,0,0) imageData
+      (varR, varG, varB) = if totalPixels == 0 
+                           then (0,0,0) 
+                           else let fp = fromIntegral totalPixels
+                                in (fst3 varRGB / fp, snd3 varRGB / fp, thd3 varRGB / fp)
+  in [avgR, avgG, avgB, varR, varG, varB]
+  where
+    fst3 (a,_,_) = a
+    snd3 (_,b,_) = b
+    thd3 (_,_,c) = c
 
 -- | Predict the fruit type from image data
 predictFruit :: [[[Float]]] -> String
-predictFruit imageData =
+predictFruit imageData = 
   -- In a real implementation, we would:
   -- 1. Load a pre-trained model
   -- 2. Extract features from the image
   -- 3. Run the features through the model
   -- 4. Return the predicted fruit type
-
+  
   -- For now, we'll use a simple heuristic based on color
   let features = extractFeatures imageData
       [avgR, avgG, avgB, _, _, _] = features
-  in if null imageData
+  in if null imageData 
      then "unknown"
-     else if avgR > avgG && avgR > avgB
+     else if avgR > avgG && avgR > avgB 
           then fruitTypeToString Apple
-          else if avgG > avgR && avgG > avgB
+          else if avgG > avgR && avgG > avgB 
                then fruitTypeToString Banana
                else if avgR > avgB && avgG > avgB && abs (avgR - avgG) < 0.2
                     then fruitTypeToString Orange
