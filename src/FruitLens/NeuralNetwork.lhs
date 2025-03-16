@@ -206,8 +206,8 @@ randomKernel i j = replicateM i (replicateM j (gauss 0.001))
 --   * MaxPoolingLayer: pool size 2×2
 --   * ConvLayer: 16 kernels of size 3×3
 --   * MaxPoolingLayer: pool size 2×2
---   * FullyConnected: from flattened input (23×23×16 = 8464) to 64 neurons
---   * FullyConnected: from 64 neurons to 5 outputs (one per fruit type)
+--   * FullyConnected: from flattened input (23×23×16 = 8464) to 100 neurons
+--   * FullyConnected: from 100 neurons to 5 outputs (one per fruit type)
 newModel :: IO NeuralNetwork
 newModel = do
   -- First convolutional layer: 8 kernels (3×3).
