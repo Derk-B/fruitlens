@@ -8,10 +8,9 @@ module FruitLens.NeuralNetwork
   , FruitType(..)
   ) where
 
-import Control.Monad
-import Data.List
-import System.Random
-import Data.Ord
+import Control.Monad ( replicateM )
+import Data.List ( maximumBy )
+import Data.Ord ( comparing )
 import FruitLens.Utils (gauss)
 \end{code}
 
@@ -31,8 +30,6 @@ fruitTypeToString Banana     = "banana"
 fruitTypeToString Orange     = "orange"
 fruitTypeToString Strawberry = "strawberry"
 fruitTypeToString Grape      = "grape"
-\end{code}
-\begin{code}
 
 ----------------------------------------------------------------------
 -- Type defenitions.
@@ -79,7 +76,7 @@ reLuactivation x | x > 0     = x
 \end{code}
 The convolve function convolves a image to a 2D list of floats that give a 2D
 feature map after the convolution. This transforms the 3D input image to a 2D
-representation.
+representation as the channels of the images get converted to a 1D vector.
 \begin{code}
 convolve :: Image -> Kernel -> [[Float]]
 convolve img kernel =
@@ -88,7 +85,7 @@ convolve img kernel =
       iRows      = length img
       iCols      = length (head img)
       numChannels = length (head (head img))
-  in [[sum [sum [(kernel !! ki !! kj) * (img !! (i+ki) !! (j+kj) !! c)
+  in [[sum [sum [(kernel !! ki !! kj) * (img !! (i + ki) !! (j + kj) !! c)
                    | c <- [0 .. numChannels - 1]]
            | ki <- [0 .. kRows - 1]
            , kj <- [0 .. kCols - 1]]
@@ -96,8 +93,8 @@ convolve img kernel =
      | i <- [0 .. iRows - kRows]]
 \end{code}
 
-The combineFeatureMaps function reconstructs an Image with its 3 color channels
-from a 2D list of floats resulting from a convolution.
+The combineFeatureMaps function reconstructs an Image type with with the channels
+resulting from the convolution.
 \begin{code}
 combineFeatureMaps :: [[[Float]]] -> Image
 combineFeatureMaps featureMaps =
@@ -162,10 +159,10 @@ calculateFullyConnectedLayerOutput inputs (biases, weights) =
   map reLuactivation $ zipWith (+) biases $ map (sum . zipWith (*) inputs) weights
 \end{code}
 
-The fully connected feed forward works by recursively processing the list of
-fully connected layers. It starts with an empty list and for every fully
-connected layer it calculates the sum of the inputs and adds the biases by calling
-the calculateFullyConnectedLayerOutput function. The output then gets used as
+The fully connected feed forward works by processing the list of fully connected
+layers. It starts with an empty list and for every fully connected layer it
+calculates the sum of the inputs and adds the biases by calling the
+calculateFullyConnectedLayerOutput function. The output then gets used as
 input in the next iteration. It only works with fully connected layers and
 gives an error when it encounters another type of layer.
 \begin{code}
@@ -185,7 +182,8 @@ feedForwardFullyConnected =
 Forward feed an image through the entire CNN. The convolutional and max pooling
 layers are applied on the image until a fully connected layer is encountered,
 then the image is flattened and processed as a 1D list of floats to predict
-the fruit.
+the fruit. The result will be a list of size n_fruits and the index with the
+maximum value will be the fruit the model predicted is in the image.
 \begin{code}
 feedForwardImage :: Image -> NeuralNetwork -> [Float]
 feedForwardImage img [] = flattenImage img
