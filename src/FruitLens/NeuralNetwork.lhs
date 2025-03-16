@@ -174,7 +174,7 @@ feedForwardFullyConnected =
   foldl (\acc layer ->
            case layer of
              FullyConnected fc -> calculateFullyConnectedLayerOutput acc fc
-             _ -> error "feedForwardFC: Expected only fully connected layers."
+             _ -> error "feedForwardFullyConnected: Expected only fully connected layers."
         )
 
 ----------------------------------------------------------------------
