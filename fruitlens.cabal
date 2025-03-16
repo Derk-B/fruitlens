@@ -26,6 +26,10 @@ source-repository head
 library
   exposed-modules:
       Lib
+      FruitLens
+      FruitLens.API
+      FruitLens.NeuralNetwork
+      FruitLens.Utils
   other-modules:
       Paths_fruitlens
   autogen-modules:
