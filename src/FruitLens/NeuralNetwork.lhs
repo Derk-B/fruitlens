@@ -160,13 +160,20 @@ neuron in the layer.
 calculateFullyConnectedLayerOutput :: [Float] -> FullyConnectedLayer -> [Float]
 calculateFullyConnectedLayerOutput inputs (biases, weights) =
   map reLuactivation $ zipWith (+) biases $ map (sum . zipWith (*) inputs) weights
+\end{code}
 
--- | Feed-forward for fully connected layers.
-feedForwardFC :: [Float] -> NeuralNetwork -> [Float]
-feedForwardFC inputs [] = inputs
-feedForwardFC inputs (layer:layers) =
+The fully connected feed forward works by recursively processing the list of
+fully connected layers. It starts with an empty list and for every fully
+connected layer it calculates the sum of the inputs and adds the biases by calling
+the calculateFullyConnectedLayerOutput function. The output then gets used as
+input in the next iteration. It only works with fully connected layers and
+gives an error when it encounters another type of layer.
+\begin{code}
+feedForwardFullyConnected :: [Float] -> NeuralNetwork -> [Float]
+feedForwardFullyConnected inputs [] = inputs
+feedForwardFullyConnected inputs (layer:layers) =
   case layer of
-    FullyConnected fc -> feedForwardFC (calculateFullyConnectedLayerOutput inputs fc) layers
+    FullyConnected fc -> feedForwardFullyConnected (calculateFullyConnectedLayerOutput inputs fc) layers
     _ -> error "feedForwardFC: Expected only fully connected layers."
 
 ----------------------------------------------------------------------
@@ -185,13 +192,13 @@ feedForwardImage img (layer:layers) =
   case layer of
     ConvLayer conv       -> feedForwardImage (applyConvLayer img conv) layers
     MaxPoolingLayer size -> feedForwardImage (applyMaxPoolingLayer img size) layers
-    FullyConnected _     -> feedForwardFC (flattenImage img) (layer:layers)
+    FullyConnected _     -> feedForwardFullyConnected (flattenImage img) (layer:layers)
 
 ----------------------------------------------------------------------
--- Model Initialization and Prediction
+-- Model Initialization.
 ----------------------------------------------------------------------
 
--- | Randomly initialize a kernel of given dimensions.
+-- Randomly initialize a ixj kernel.
 randomKernel :: Int -> Int -> IO Kernel
 randomKernel i j = replicateM i (replicateM j (gauss 0.001))
 
@@ -240,11 +247,11 @@ newModel = do
 
   return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
 
--- | Get the index of the maximum value of a list.
+-- Get the index of the maximum value of a list.
 argmax :: [Float] -> Int
 argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
 
--- | Predict the fruit type from an image using the CNN.
+-- Predict the fruit type from an image using the CNN.
 predictFruit :: NeuralNetwork -> Image -> FruitType
 predictFruit model image = toEnum (argmax (feedForwardImage image model))
 
