@@ -74,7 +74,7 @@ reLuactivation x | x > 0     = x
                  | otherwise = 0
 
 \end{code}
-The convolve function convolves a image to a 2D list of floats that give a 2D
+The convolve function convolves an image to a 2D list of floats that give a 2D
 feature map after the convolution. This transforms the 3D input image to a 2D
 representation as the channels of the images get converted to a 1D vector.
 \begin{code}
@@ -105,7 +105,7 @@ combineFeatureMaps featureMaps =
        | i <- [0 .. h - 1]]
 \end{code}
 
-Apply a convolutional layer to an image. The image gets convolved width the
+applyConvLayer applies a convolutional layer to an image. The image gets convolved with the
 convolutional kernels of the layer and the bias of the layer gets added to the
 result. The result gets reconstructed back to an Image type by the combineFeatureMaps
 function.
@@ -206,42 +206,42 @@ randomKernel i j = replicateM i (replicateM j (gauss 0.001))
 --   * MaxPoolingLayer: pool size 2×2
 --   * ConvLayer: 16 kernels of size 3×3
 --   * MaxPoolingLayer: pool size 2×2
---   * FullyConnected: from flattened input (14×14×16 = 3136) to 64 neurons
+--   * FullyConnected: from flattened input (23×23×16 = 8464) to 64 neurons
 --   * FullyConnected: from 64 neurons to 5 outputs (one per fruit type)
 newModel :: IO NeuralNetwork
 newModel = do
-  -- First convolutional layer: 8 kernels (3×3)
+  -- First convolutional layer: 8 kernels (3×3).
   conv1Kernels <- replicateM 8 (randomKernel 3 3)
   conv1Biases  <- replicateM 8 (gauss 0.01)
   let convLayer1 = ConvLayer (conv1Kernels, conv1Biases)
 
-  -- First max pooling layer: pool size 2
+  -- First max pooling layer with pool size 2×2.
   let poolLayer1 = MaxPoolingLayer 2
 
-  -- Second convolutional layer: 16 kernels (3×3)
+  -- Second convolutional layer: 16 3x3 kernels.
   conv2Kernels <- replicateM 16 (randomKernel 3 3)
   conv2Biases  <- replicateM 16 (gauss 0.01)
   let convLayer2 = ConvLayer (conv2Kernels, conv2Biases)
 
-  -- Second max pooling layer: pool size 2
+  -- Second max pooling layer with pool size 2×2.
   let poolLayer2 = MaxPoolingLayer 2
 
   -- After two conv+pool layers:
-  --   Input image: 64×64
-  --   After convLayer1 (3×3): 62×62 with 8 channels
-  --   After poolLayer1 (2×2): floor(62/2)=31×31 with 8 channels
-  --   After convLayer2 (3×3): 29×29 with 16 channels
-  --   After poolLayer2 (2×2): floor(29/2)=14×14 with 16 channels
-  --   Flattened size = 14 * 14 * 16 = 3136.
+  --   Input image: 100×100
+  --   After convLayer1 (3×3): 98×98 with 8 channels
+  --   After poolLayer1 (2×2): floor(98/2) = 49×49 with 8 channels
+  --   After convLayer2 (3×3): 47×47 with 16 channels
+  --   After poolLayer2 (2×2): floor(47/2) = 23×23 with 16 channels
+  --   Flattened size = 23 * 23 * 16 = 8464.
 
-  -- Fully connected layer 1: 3136 -> 64
-  fc1Biases  <- replicateM 64 (gauss 0.01)
-  fc1Weights <- replicateM 64 (replicateM 3136 (gauss 0.01))
+  -- Fully connected layer 1: 8464 -> 100
+  fc1Biases  <- replicateM 100 (gauss 0.01)
+  fc1Weights <- replicateM 100 (replicateM 8464 (gauss 0.01))
   let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
 
-  -- Fully connected layer 2: 64 -> 5 (one for each fruit type)
+  -- Fully connected layer 2: 100 -> 5 (one for each fruit type)
   fc2Biases  <- replicateM 5 (gauss 0.01)
-  fc2Weights <- replicateM 5 (replicateM 64 (gauss 0.01))
+  fc2Weights <- replicateM 5 (replicateM 100 (gauss 0.01))
   let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
 
   return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
