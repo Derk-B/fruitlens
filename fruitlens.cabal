@@ -31,6 +31,7 @@ library
       FruitLens.NeuralNetwork
       FruitLens.Utils
   other-modules:
+      FruitLens.Test
       Paths_fruitlens
   autogen-modules:
       Paths_fruitlens

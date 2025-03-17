@@ -44,8 +44,8 @@ type NeuralNetwork = [Layer]
 newModel :: [Int] -> IO NeuralNetwork
 newModel [] = error "newModel: cannot initialize layers with [] as input"
 newModel layers@(_:outputLayers) = do
-  biases <- mapM (\n -> replicateM n (gauss 0.01)) outputLayers
-  weights <- zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) layers outputLayers
+  biases <- mapM (\n -> replicateM n (randomRIO (-1,1) :: IO Float)) outputLayers
+  weights <- zipWithM (\m n -> replicateM n $ replicateM m (randomRIO (-1,1) :: IO Float)) layers outputLayers
   return (zip biases weights)
 
 -- | Activation function (ReLU)
@@ -60,11 +60,119 @@ sigmoid x = 1 / (1 + exp (-x))
 -- | Calculate the output of a single layer
 calculateLayerOutput :: [Float] -> Layer -> [Float]
 calculateLayerOutput inputs (biases, weights) = 
-  map activation $ zipWith (+) biases $ sum . zipWith (*) inputs <$> weights
+  map sigmoid $ zipWith (+) biases $ sum . zipWith (*) inputs <$> weights
 
 -- | Feed forward through the entire neural network
 feedForward :: [Float] -> NeuralNetwork -> [Float]
 feedForward = foldl' calculateLayerOutput
+
+loss :: [Float] -> [Float] -> Float
+loss values targets = sum $ zipWith (\ a b -> (b - a) * (b - a)) values targets
+
+modelLoss :: NeuralNetwork -> [Float] -> [Float] -> Float
+modelLoss m ins = loss (feedForward ins m)
+
+-- Gradient descent sensitivity
+gdSens :: Float
+gdSens = 0.01
+
+updateAt :: (a -> a) -> Int -> [a] -> [a]
+updateAt f p ls = l ++ [f (head r)] ++ tail r
+  where (l,r) = splitAt p ls
+
+updateModel :: NeuralNetwork -> NeuralNetwork -> NeuralNetwork
+updateModel [] _ = []
+updateModel oldModel@(oldLayer@(oldBias,oldWeights):nextLayers) prevLayers = newLayer : updateModel nextLayers (oldLayer: prevLayers)
+  where
+    targets = [1,2,3]
+    testInput = [1,1,1]
+    originalCost = loss (feedForward testInput oldModel) targets
+    costGradientB :: [Float]
+    costGradientB = let
+      -- Adds gsSens to each bias, example: [1,2,3] -> [[1+gdSens,2,3],[1,2+gdSens,3],...]
+      updatedBiases :: [[Float]]
+      updatedBiases = map (\i -> updateAt (+ gdSens) i oldBias) ([0..(length oldBias)] :: [Int]) 
+      in map (\newBias -> modelLoss (prevLayers ++ [(newBias, oldWeights)] ++ nextLayers) testInput targets / gdSens) updatedBiases
+
+    costGradientW :: [[Float]]
+    costGradientW = let
+      -- Weights is an MxN array, so we need a MxN number of updated weight arrays
+      updateIndices = [(x,y) | y <- [0..(length oldWeights)], x <- [0..(length (head oldWeights))]]
+      -- M x N weights 
+      updatedWeights ::[[[Float]]]
+      updatedWeights = map (\(y,x) -> updateAt (updateAt (+ gdSens) x) y oldWeights) updateIndices
+      in map (\newWeights -> map (\newWeight -> modelLoss (prevLayers ++ [(oldBias, newWeights)] ++ nextLayers) testInput targets / gdSens) newWeights) updatedWeights
+    learningRate = 0.001
+
+    -- Gradient descent for a single layer
+    newLayer = (
+        -- Apply the bias gradients to the old biases
+        zipWith (\b g -> b - (g * learningRate) ) oldBias  costGradientB, 
+        -- Apply the weight gradients to the old weights
+        -- Weigth and weightGradients are a 2d array so apply each weight in each weightArray to a gradient in each gradientArray
+        -- [[1,2,3],...] <- old weights
+        --   | | |
+        -- [[1,1,1],...] <- gradients
+        --   | | |
+        -- [[a,b,c],...] <- new weights
+        zipWith (zipWith (\ w g -> w - (g * learningRate))) oldWeights costGradientW
+      )
+
+prettyPrint :: NeuralNetwork -> String
+prettyPrint [] = []
+prettyPrint ((bs,ws):ls) = concat (zipWith (\b w -> show b ++ " | " ++ show w ++ "\n") bs ws) ++ "\n" ++ prettyPrint ls
+
+-- bTest = res where
+--   oldBs = [1,1,1,1]
+--   updatedBiases :: [[Float]]
+--   updatedBiases = map (\i -> updateAt (+ gdSens) i oldBs) ([0..length oldBs-1] :: [Int]) 
+--   res = updatedBiases
+
+-- wTest = res where
+--   oldWs = [[1,1,1],[1,1,1]]
+--   -- Weights is an MxN array, so we need a MxN number of updated weight arrays
+--   updateIndices = [(x,y) | y <- [0..length oldWs-1], x <- [0..length (head oldWs)-1]]
+--   -- M x N weights 
+--   updatedWeights ::[[[Float]]]
+--   updatedWeights = map (\(y,x) -> updateAt (updateAt (+ gdSens) x) y oldWs) updateIndices
+--   res = updatedWeights
+
+start = do
+  -- model <- newModel [784, 30, 10]
+  let targets = [1,2,3]
+  model <- newModel [3,4,3]
+  putStrLn "========================="
+  putStrLn "Model:"
+  putStrLn $ prettyPrint model
+  putStrLn "========================="
+
+  let result = feedForward [1,1,1] model
+  putStrLn "Result:"
+  print result
+  putStrLn "Loss:"
+  print $ loss result targets
+
+  let updatedModel = updateModel model []
+  let updatedResult = feedForward [1,1,1] updatedModel
+  putStrLn "========================="
+  putStrLn "Model:"
+  putStrLn $ prettyPrint updatedModel
+  putStrLn "========================="
+  putStrLn "Result:"
+  print updatedResult
+  putStrLn "Loss:"
+  print $ loss updatedResult targets
+  
+  let updatedModel2 = updateModel updatedModel []
+  let updatedResult2 = feedForward [1,1,1] updatedModel2
+  putStrLn "========================="
+  putStrLn "Model:"
+  putStrLn $ prettyPrint updatedModel2
+  putStrLn "========================="
+  putStrLn "Result:"
+  print updatedResult2
+  putStrLn "Loss:"
+  print $ loss updatedResult2 targets
 
 -- | Extract features from image data
 -- Each pixel is represented as [r,g,b] and the image is a 2D array of pixels
@@ -128,6 +236,7 @@ predictFruit imageData =
                          else if avgB > avgR && avgB > avgG
                               then fruitTypeToString Grape
                               else "unknown"
+
 
 -- | Train the neural network model (placeholder)
 -- In a real implementation, this would use backpropagation
