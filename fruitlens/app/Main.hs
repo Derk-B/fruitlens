@@ -20,8 +20,11 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Base16 as B16
 import Codec.Picture
+import Codec.Picture.Png (encodePng)
 import Data.Vector.Storable (toList)
 import Data.List.Split (chunksOf)
+import Codec.Picture.Extra (crop, scaleBilinear)
+import Control.Monad.IO.Class (liftIO)
 
 newtype MyImage = MyImage { value :: String } deriving (Show)
 
@@ -46,10 +49,23 @@ processImage = do
                 Left err -> Web.Scotty.json $ object ["error" .= ("Image decoding failed: " ++ err)]
                 Right dynImage -> do
                     let converted = convertRGB8 dynImage
-                    let rgbList = toList (imageData converted)
-                    let tupleList = chunksOf 3 rgbList
-                    let tupleList2d = chunksOf (imageWidth converted) tupleList
-                    Web.Scotty.json $ object ["tuples" .= tupleList2d]
+                    let square = toSquare converted --  Make it square before scaling to avoid distortion
+                    let scaled = scaleBilinear 100 100 square -- Scale to 100 by 100 image
+                    let rgbList = toList (imageData scaled) -- All RGB values in a row 
+                    let tupleList = chunksOf 3 rgbList -- Convert to long list of [R, G, B] Tuples
+                    let tupleList2d = chunksOf (imageWidth scaled) tupleList -- Convert to 2D list of [R, G, B] Tuples (top to bottom, left to right)
+                    Web.Scotty.json $ object ["base64" .= BC.unpack (B64.encode (BL.toStrict (encodePng scaled))), "tuples" .= tupleList2d]
+                    -- The scotty return above is only here to check the picture is being processed correctly, remove later
+                    -- TODO: Send array to neural network
+
+toSquare :: Image PixelRGB8 -> Image PixelRGB8 -- Crop image to square, centered
+toSquare img =
+    let w = imageWidth img
+        h = imageHeight img
+        size = min w h
+        x = (w - size) `div` 2
+        y = (h - size) `div` 2
+    in crop x y size size img
 
 -- END SCOTTY API
 
