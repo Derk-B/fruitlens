@@ -67,3 +67,12 @@ processImage = do
                             "height" .= imageHeight converted
                         ]
                       ] 
+
+toSquare :: Image PixelRGB8 -> Image PixelRGB8 -- Crop image to square, centered
+toSquare img =
+    let w = imageWidth img
+        h = imageHeight img
+        size = min w h
+        x = (w - size) `div` 2
+        y = (h - size) `div` 2
+    in crop x y size size img
