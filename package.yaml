@@ -32,6 +32,7 @@ dependencies:
 - JuicyPixels
 - vector
 - split
+- JuicyPixels-extra
 
 ghc-options:
 - -Wall

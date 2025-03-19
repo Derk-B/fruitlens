@@ -13,6 +13,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Base16 as B16
 import Codec.Picture
+import Codec.Picture.Extra (crop, scaleBilinear)
 import Data.Vector.Storable (toList)
 import Data.List.Split (chunksOf)
 
@@ -43,11 +44,13 @@ processImage = do
         Right byteArray -> do 
           case decodeImage byteArray of
                 Left err -> Web.Scotty.json $ object ["error" .= ("Image decoding failed: " ++ err)]
-                Right dynImage -> do
+                Right dynImage -> do -- TODO make more compact? Is very clear now though
                     let converted = convertRGB8 dynImage
-                    let rgbList = toList (imageData converted)
-                    let tupleList = chunksOf 3 rgbList
-                    let tupleList2d = chunksOf (imageWidth converted) tupleList
+                    let square = toSquare converted --  Make it square before scaling to avoid distortion
+                    let scaled = scaleBilinear 100 100 square -- Scale to 100 by 100 image
+                    let rgbList = toList (imageData scaled) -- All RGB values in a row 
+                    let tupleList = chunksOf 3 rgbList -- Convert to long list of [R, G, B] Tuples
+                    let tupleList2d = chunksOf (imageWidth scaled) tupleList -- Convert to 2D list of [R, G, B] Tuples (top to bottom, left to right)
                     
                     -- Convert pixel values from Word8 (0-255) to Float (0-1)
                     let normalizedPixels = map (map (\[r,g,b] -> [fromIntegral r / 255, fromIntegral g / 255, fromIntegral b / 255])) tupleList2d
