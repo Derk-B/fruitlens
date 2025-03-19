@@ -24,6 +24,15 @@ dependencies:
 - random
 - zlib
 - bytestring
+- scotty
+- aeson
+- base64-bytestring
+- base16-bytestring
+- gloss
+- JuicyPixels
+- vector
+- split
+- JuicyPixels-extra
 
 ghc-options:
 - -Wall
@@ -38,6 +47,12 @@ ghc-options:
 
 library:
   source-dirs: src
+  exposed-modules:
+    - Lib
+    - FruitLens
+    - FruitLens.API
+    - FruitLens.NeuralNetwork
+    - FruitLens.Utils
 
 executables:
   fruitlens-exe:

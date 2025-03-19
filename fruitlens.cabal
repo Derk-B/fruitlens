@@ -26,6 +26,10 @@ source-repository head
 library
   exposed-modules:
       Lib
+      FruitLens
+      FruitLens.API
+      FruitLens.NeuralNetwork
+      FruitLens.Utils
   other-modules:
       Paths_fruitlens
   autogen-modules:
@@ -34,9 +38,18 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , JuicyPixels-extra
+    , aeson
+    , base >=4.7 && <5
+    , base16-bytestring
+    , base64-bytestring
     , bytestring
+    , gloss
     , random
+    , scotty
+    , split
+    , vector
     , zlib
   default-language: Haskell2010
 
@@ -50,10 +63,19 @@ executable fruitlens-exe
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , JuicyPixels-extra
+    , aeson
+    , base >=4.7 && <5
+    , base16-bytestring
+    , base64-bytestring
     , bytestring
     , fruitlens
+    , gloss
     , random
+    , scotty
+    , split
+    , vector
     , zlib
   default-language: Haskell2010
 
@@ -68,9 +90,18 @@ test-suite fruitlens-test
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      JuicyPixels
+    , JuicyPixels-extra
+    , aeson
+    , base >=4.7 && <5
+    , base16-bytestring
+    , base64-bytestring
     , bytestring
     , fruitlens
+    , gloss
     , random
+    , scotty
+    , split
+    , vector
     , zlib
   default-language: Haskell2010
