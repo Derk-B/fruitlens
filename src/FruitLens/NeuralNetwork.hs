@@ -111,7 +111,9 @@ prettyPrint ((bs,ws):ls) = concat (zipWith (\b w -> show b ++ " | " ++ show w ++
 
 train :: [Float] -> [Float] -> NeuralNetwork -> Float -> IO NeuralNetwork
 train input target network learningRate = do
+  -- putStrLn $ "Network: " ++ show network ++ "\n"
   let (output, deltas) = backpropagate input target network
+  -- putStrLn $ "O,d: " ++ show (output, deltas) ++ "\n"
   return $ updateNetwork network deltas learningRate
 
 getImage s n = fromIntegral . BS.index s . (n*28^2 + 16 +) <$> [0..28^2 - 1]
@@ -130,9 +132,25 @@ main = do
     ]
   -- print $ map length [trainI, trainL, testI, testL]
   network <- newModel [784, 30, 10]
+  -- network <- newModel [2,2,1]
+  -- let network = [([1,1],[[1,1],[1,1]]),([1],[[1,1]])]
+  -- putStrLn $ "INit model: " ++ show network
+
+  let epochs = 10000
+  let trainData = getX trainI <$> [0..epochs]
+  let targetData = getY trainL <$> [0..epochs]
   
+  -- let trainData = concat $ replicate 5 [[0,0], [0,1], [1,0], [1,1]]
+  -- let targetData = concat $ replicate 5 [[0], [0], [0], [1]]
+
   -- Train the network
-  trainedNetwork <- foldM (\n i -> train (getX trainI i) (getY trainL i) n 0.02 ) network [0..9999]
+  trainedNetwork <- foldM (\n (input, target) -> train input target n 0.02 ) network $ zip trainData targetData
+
+  -- Test the network
+  let predicted = map (\d -> feedForward d trainedNetwork) $ take 4 trainData
+  -- putStrLn $ "Predicted: " ++ show predicted
+
+  print trainedNetwork
   
   let  bestOf = fst . maximumBy (comparing snd) . zip [0..]
   let guesses = bestOf . (\n -> feedForward (getX testI n) trainedNetwork) <$> [0..9999]
