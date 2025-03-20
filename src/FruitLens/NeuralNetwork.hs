@@ -111,6 +111,7 @@ prettyPrint ((bs,ws):ls) = concat (zipWith (\b w -> show b ++ " | " ++ show w ++
 
 train :: [Float] -> [Float] -> NeuralNetwork -> Float -> IO NeuralNetwork
 train input target network learningRate = do
+  putStrLn $ show input ++ " - " ++ show target
   -- putStrLn $ "Network: " ++ show network ++ "\n"
   let (output, deltas) = backpropagate input target network
   -- putStrLn $ "O,d: " ++ show (output, deltas) ++ "\n"
@@ -131,20 +132,20 @@ main = do
     ,  "t10k-labels-idx1-ubyte.gz"
     ]
   -- print $ map length [trainI, trainL, testI, testL]
-  network <- newModel [784, 30, 10]
-  -- network <- newModel [2,2,1]
-  -- let network = [([1,1],[[1,1],[1,1]]),([1],[[1,1]])]
-  -- putStrLn $ "INit model: " ++ show network
+  -- network <- newModel [784, 30, 10]
+  -- initNet <- newModel [2,2,1]
+  let initNet = [([1,1],[[1,1],[1,1]]),([1],[[1,1]])]
+  putStrLn $ "INit model: " ++ show initNet
 
-  let epochs = 10000
-  let trainData = getX trainI <$> [0..epochs]
-  let targetData = getY trainL <$> [0..epochs]
+  let epochs = 0
+  -- let trainData = getX trainI <$> [0..epochs]
+  -- let targetData = getY trainL <$> [0..epochs]
   
-  -- let trainData = concat $ replicate 5 [[0,0], [0,1], [1,0], [1,1]]
-  -- let targetData = concat $ replicate 5 [[0], [0], [0], [1]]
+  let trainData = [[0,0], [0,1], [1,0], [1,1]]
+  let targetData = [[0], [0], [0], [1]]
 
   -- Train the network
-  trainedNetwork <- foldM (\n (input, target) -> train input target n 0.02 ) network $ zip trainData targetData
+  trainedNetwork <- foldM (\network _-> foldM (\net (input, target) -> train input target net 0.02 ) network $ zip trainData targetData) initNet [0..epochs]
 
   -- Test the network
   let predicted = map (\d -> feedForward d trainedNetwork) $ take 4 trainData
