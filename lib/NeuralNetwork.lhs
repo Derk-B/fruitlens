@@ -1,4 +1,9 @@
-module FruitLens.NeuralNetwork
+\section{Neural Network Module}\label{sec:NeuralNetwork}
+
+This module implements the neural network functionality for fruit recognition.
+
+\begin{code}
+module NeuralNetwork
   ( Biases
   , Weights
   , Layer
@@ -18,7 +23,7 @@ import Data.Ord
 import Data.List
 import System.Random
 
-import FruitLens.Utils (gauss)
+import Utils (gauss)
 
 -- | Fruit types that can be recognized
 data FruitType = Apple | Banana | Orange | Strawberry | Grape
@@ -144,3 +149,4 @@ trainModel model trainingData epochs learningRate = do
   --    d. Update weights and biases
   -- 2. Repeat for specified number of epochs
   trainModel model trainingData (epochs - 1) learningRate
+\end{code}

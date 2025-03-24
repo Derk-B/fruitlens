@@ -1,4 +1,9 @@
-module FruitLens.Utils
+\section{Utilities Module}\label{sec:Utils}
+
+This module provides utility functions for the FruitLens application.
+
+\begin{code}
+module Utils
   ( gauss
   , readMNISTLabels
   , readMNISTImages
@@ -23,4 +28,5 @@ readMNISTLabels _ = return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] -- Placeholder impleme
 -- | Read MNIST images from a file
 -- This is a placeholder function that will be implemented later
 readMNISTImages :: FilePath -> IO [[Float]]
-readMNISTImages _ = return (replicate 10 (replicate 784 0)) -- Placeholder implementation 
+readMNISTImages _ = return (replicate 10 (replicate 784 0)) -- Placeholder implementation
+\end{code}

@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./lib"
+      component: "fruitlens:lib"
+
+    - path: "./exec/Main.lhs"
+      component: "fruitlens:exe:fruitlens-exe"
+
+    - path: "./exec/Paths_fruitlens.hs"
+      component: "fruitlens:exe:fruitlens-exe"
+
+    - path: "./test"
+      component: "fruitlens:test:fruitlens-test"

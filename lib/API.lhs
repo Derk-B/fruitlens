@@ -1,6 +1,11 @@
+\section{API Module}\label{sec:API}
+
+This module provides the web server functionality for the FruitLens application.
+
+\begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 
-module FruitLens.API
+module API
   ( startServer
   , processImage
   , MyImage(..)
@@ -17,7 +22,7 @@ import Codec.Picture.Extra (crop, scaleBilinear)
 import Data.Vector.Storable (toList)
 import Data.List.Split (chunksOf)
 
-import FruitLens.NeuralNetwork (predictFruit)
+import NeuralNetwork (predictFruit)
 
 -- | Image data type for JSON serialization/deserialization
 newtype MyImage = MyImage { value :: String } deriving (Show)
@@ -76,3 +81,4 @@ toSquare img =
         x = (w - size) `div` 2
         y = (h - size) `div` 2
     in crop x y size size img
+\end{code}
