@@ -14,6 +14,9 @@ jobs:
         path: |
           ~/.stack
           ~/.stack-work
+    - name: Install build dependencies
+      run: |
+        apt-get install libglu1-mesa-dev libglfw3-dev -y
     - uses: actions/checkout@v3
     - name: Compile library
       run: stack --system-ghc build
