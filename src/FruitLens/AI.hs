@@ -9,6 +9,7 @@ import Control.Monad
 import Data.Ord
 import Data.List ( foldl', maximumBy, transpose )
 import System.Random
+import qualified GHC.Int
 
 -- | Type aliases for neural network components
 type Biases = [Float]
@@ -22,9 +23,19 @@ type NeuralNetwork = [Layer]
 newModel :: [Int] -> IO NeuralNetwork
 newModel [] = error "newModel: cannot initialize layers with [] as input"
 newModel layers@(_:outputLayers) = do
-  biases <- mapM (\n -> replicateM n (randomRIO (-1,1) :: IO Float)) outputLayers
-  weights <- zipWithM (\m n -> replicateM n $ replicateM m (randomRIO (-1,1) :: IO Float)) layers outputLayers
+  let biases = map (`replicate` 1) outputLayers
+  weights <- zipWithM (\m n -> replicateM n $ replicateM m (gauss 0.01)) layers outputLayers
   return (zip biases weights)
+
+
+gauss scale = do
+  x1 <- randomIO
+  x2 <- randomIO
+  return $ scale * sqrt (-2 * log x1) * cos (2 * pi * x2)
+
+newBrain :: [Int] -> IO NeuralNetwork
+newBrain szs@(_:ts) = zip (flip replicate 1 <$> ts) <$>
+  zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) szs ts
 
 relu :: Float -> Float
 relu = max 0
@@ -44,8 +55,8 @@ feedForward = foldl' (((relu <$>) . ) . calculateLayerOutput)
 -- Then we apply the activation function (relu) to the 'layerOutput' and call it 'activatedOutput'
 -- Then we return (activatedOutputs, layerOutputs)
 getActivatedAndWeightedOutputs :: [Float] -> NeuralNetwork -> ([[Float]], [[Float]])
-getActivatedAndWeightedOutputs initialInputs = foldl' (\(inputs@(nodeInput:_), prevOutputs) layer -> 
-  let layerOutput = calculateLayerOutput nodeInput layer 
+getActivatedAndWeightedOutputs initialInputs = foldl' (\(inputs@(nodeInput:_), prevOutputs) layer ->
+  let layerOutput = calculateLayerOutput nodeInput layer
   in ((relu <$> layerOutput):inputs, layerOutput:prevOutputs)) ([initialInputs], [])
 
 dCost :: (Num a, Ord a) => a -> a -> a
@@ -91,27 +102,46 @@ main = do
     ,  "t10k-images-idx3-ubyte.gz"
     ,  "t10k-labels-idx1-ubyte.gz"
     ]
-  b <- newModel [784, 30, 10]
+  initialModel <- newBrain [784, 30, 10]
   n <- (`mod` 10000) <$> randomIO
   putStr . unlines $
     take 28 $ take 28 <$> iterate (drop 28) (render <$> getImage testI n)
 
   let
+    epochs = 9999
     example = getX testI n
-    bs = scanl (foldl' (\b n -> learn (getX trainI n) (getY trainL n) b)) b [
-     [   0.. 999],
-     [1000..2999],
-     [3000..5999],
-     [6000..9999]]
-    smart = last bs
+    bs = foldl' (\b n -> learn (getX trainI n) (getY trainL n) b) initialModel [0..epochs]
+    smart = bs
     cute d score = show d ++ ": " ++ replicate (round $ 70 * min 1 score) '+'
     bestOf = fst . maximumBy (comparing snd) . zip [0..]
 
-  forM_ bs $ putStrLn . unlines . zipWith cute [0..9] . feedForward example
+  -- forM_ bs $ putStrLn . unlines . cute [0..9] . feedForward example
 
   putStrLn $ "best guess: " ++ show (bestOf $ feedForward example smart)
 
-  let guesses = bestOf . (\n -> feedForward (getX testI n) smart) <$> [0..9999]
-  let answers = getLabel testL <$> [0..9999]
+  let guesses = bestOf . (\n -> feedForward (getX testI n) smart) <$> [0..epochs]
+  let answers = getLabel testL <$> [0..epochs]
   putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++
     " / 10000"
+
+train :: [[Float]] -> [[Float]] -> [[Float]] -> [[Float]] -> IO ()
+train trainI trainL testI testL = do
+  -- initialModel <- newBrain [30000, 512, 2] -- 243 / 1026
+
+  -- Apple 6, apple 10, banana 1, banana 3, pear 1
+  -- [30k, 20, 3] + 40 training items      => 700/1026
+  -- [30k, 20, 3] + complete training data => 264/1026
+  
+  -- Apple 6, apple 10, banana 1, banana 3
+  -- [30000, 32, 3] + 40 training items      => 826/826
+  -- [30000, 32, 2] + complete training data => 802/826
+  initialModel <- newBrain [30000, 32, 2] 
+  let smartModel = foldl' (\net (input, label) -> learn input label net) initialModel $ zip trainI trainL
+  let bestOf = fst . maximumBy (comparing snd) . zip ([0..] :: [Float])
+  let guesses = bestOf . (`feedForward` smartModel) <$> testI
+  let answers = bestOf <$> testL
+  -- print answers
+  putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
+
+  print (head guesses, head answers, head testL)
+  return ()
