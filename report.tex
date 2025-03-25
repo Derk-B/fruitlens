@@ -1,0 +1,204 @@
+\documentclass[12pt,a4paper]{article}
+\input{latexmacros.tex}
+
+\title{FruitLens: User-friendly Neural Network Fruit Classification in Haskell}
+\author{Derk Blom, Lex Bolt, Folkert Muntz, Marc Rassi, Ziang Wu}
+\date{\today}
+\hypersetup{pdfauthor={Derk Blom, Lex Bolt, Folkert Muntz, Marc Rassi, Ziang Wu}, pdftitle={Functional Programming Project: FruitLens}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This report outlines a group project as part of the Functional Programming course. The project involved developing a neural network application using Haskell, equipped with both training and inference capabilities. The application is mainly targeted at fruit classification using a specific dataset. The application is further enhanced by a web backend, facilitating accessibility and deployment, as well as an Android mobile application to support on-the-go usage, emphasizing the integration of functional programming paradigms in practical machine learning and application development.
+\end{abstract}
+
+\vfill
+
+\tableofcontents
+
+\clearpage
+
+% We include one file for each section. The ones containing code should
+% be called something.lhs and also mentioned in the .cabal file.
+
+\section{Implementing Neural Network}
+
+\subsection{Dataset}
+In this project, a fruit dataset, named Fruits-360 \cite{oltean_fruits-360_2017}, is used for training and testing the neural network. 
+
+The dataset contains images of 5 main classes of fruits (Apple, Banana, Orange, Strawberry, and Grape) , with each image in the format of $100 \times 100 \times 3$ (width, height, and channels).
+
+\input{lib/CNN.lhs}
+
+\subsection{Neural Network Architecture}
+Feed-forward propagation is the fundamental process by which neural networks transform input data into output predictions. It's called "feed-forward" because information flows in one direction - from the input layer, through hidden layers, to the output layer, without any loops or feedback connections.
+\subsubsection{Input Shape}
+The input layer is the first layer of a neural network and serves as the entry point for data. Unlike other layers, the input layer doesn't perform any transformations on the data—it simply passes the input features to the first hidden layer.
+In this Haskell implementation, the input layer isn't explicitly represented as a separate structure. Instead, it's implicitly handled through the input values provided to the network.
+
+Looking at the code, we can see that inputs to the neural network are represented as a simple list of floating-point values:\\
+
+\begin{code}
+feedForward :: [Float] -> NeuralNetwork -> [Float]
+\end{code}
+
+The first parameter [Float] represents the input features. These could be any numerical features extracted from raw data. In the case of this fruit classification neural network, the features come from processing image data.
+
+The extractFeatures function transforms raw image data into the input features the neural network can process:
+
+\input{lib/Shape.lhs}
+
+This function:
+\begin{enumerate}
+  \item Takes a 3D array representing an image (\texttt{[[[Float]]]}), where:
+  \begin{itemize}
+    \item The outermost list represents rows of the image
+    \item The middle list represents pixels in each row
+    \item The innermost list represents the RGB values of each pixel
+  \end{itemize}
+  
+  \item Calculates six features from the image:
+  \begin{itemize}
+    \item Average red value (\texttt{avgR})
+    \item Average green value (\texttt{avgG})
+    \item Average blue value (\texttt{avgB})
+    \item Variance of red values (\texttt{varR})
+    \item Variance of green values (\texttt{varG})
+    \item Variance of blue values (\texttt{varB})
+  \end{itemize}
+  
+  \item Returns these features as a single list \texttt{[avgR, avgG, avgB, varR, varG, varB]}
+\end{enumerate}
+
+This feature extraction is a form of dimensionality reduction---it transforms a high-dimensional input (an entire image with thousands of pixels) into a low-dimensional feature vector (just six values) that captures the essential characteristics for fruit classification.
+
+\subsubsection{Hidden Layers}
+Hidden layers form the core processing component of neural networks, transforming input features into increasingly abstract representations before producing the final output. In the Haskell neural network implementation we're examining, hidden layers are handled as part of the general layer structure, with specific operations applied as data flows through the network.
+
+The hidden layers are represented using the same data structures as all other layers in the network. Let's examine the relevant type definitions:
+\begin{code}
+type Biases = [Float]
+type Weights = [[Float]]
+type Layer = (Biases, Weights)
+type NeuralNetwork = [Layer]
+\end{code}
+Each layer consists of:
+\begin{itemize}
+\item A vector of biases (one bias per neuron in the layer)
+\item A matrix of weights (connection weights from each input to each neuron)
+\end{itemize}
+
+Hidden layers are initialized along with the rest of the network in the \texttt{newModel} function:
+\begin{code}
+newModel :: [Int] -> IO NeuralNetwork
+newModel [] = error "newModel: cannot initialize layers with [] as input"
+newModel layers@(_:outputLayers) = do
+biases <- mapM (\n -> replicateM n (gauss 0.01)) outputLayers
+weights <- zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) layers outputLayers
+return (zip biases weights)
+\end{code}
+Let's break down how hidden layers are initialized:
+\begin{enumerate}
+    \item The \texttt{layers} parameter specifies the number of neurons in each layer.
+    \item For a network with structure \texttt{[6, 10, 5]}, we have:
+        \begin{itemize}
+            \item 6 input features
+            \item 10 neurons in a hidden layer
+            \item 5 output neurons
+        \end{itemize}
+    \item The \texttt{biases} are initialized using Gaussian distribution with mean 0 and standard deviation 0.01.
+    \item The \texttt{weights} are also initialized using the same Gaussian distribution.
+    \item For the hidden layer with 10 neurons receiving 6 inputs, we create:
+        \begin{itemize}
+            \item A bias vector of length 10
+            \item A weight matrix of size 10×6 \end{itemize}
+\end{enumerate}
+
+The core computation that occurs in hidden layers is implemented in the \texttt{calculateLayerOutput} function:
+\begin{code}
+calculateLayerOutput :: [Float] -> Layer -> [Float]
+calculateLayerOutput inputs (biases, weights) =
+map activation $ zipWith (+) biases $ sum . zipWith (*) inputs <\$> weights
+\end{code}
+
+For each neuron $j$ in a hidden layer, the computation follows this formula:
+
+$$a_j = f\left(\sum_{i=1}^{n} w_{ji} \times x_i + b_j\right)$$
+
+Where:
+\begin{itemize}
+    \item $a_j$ is the activation (output) of neuron $j$
+    \item $f$ is the activation function (ReLU in this case)
+    \item $w_{ji}$ is the weight connecting input $i$ to neuron $j$
+    \item $x_i$ is the $i$-th input value
+    \item $b_j$ is the bias for neuron $j$
+    \item $n$ is the number of inputs
+\end{itemize}
+
+Let's decipher the code for hidden layer processing step by step:
+
+\begin{enumerate}
+    \item \texttt{zipWith (*) inputs <\$> weights}
+    
+    This applies the weight matrix to the input vector. The \texttt{<\$>} operator (which is \texttt{fmap}) applies the function \texttt{zipWith (*) inputs} to each row of the weight matrix, resulting in a list of weighted input sums for each neuron.
+    
+    \item \texttt{sum . zipWith (*) inputs <\$> weights}
+    
+    The \texttt{sum} function is composed with the previous operation, summing up all the weighted inputs for each neuron.
+    
+    \item \texttt{zipWith (+) biases \$ sum . zipWith (*) inputs <\$> weights}
+    
+    This adds the bias term to each neuron's weighted sum, completing the linear transformation part.
+    
+    \item \texttt{map activation \$ zipWith (+) biases \$ sum . zipWith (*) inputs <\$> weights}
+    
+    Finally, the activation function is applied to each neuron's value, introducing non-linearity.
+\end{enumerate}
+
+\subsubsection{Output Shape}
+The output of the model should be a 1D array of floats. Each float value represents the prediction confidence for each class (each type of fruit).
+
+\subsection{Training and Inference}
+
+\input{lib/Train.lhs}
+
+% Terminal output during training here
+
+\section{Implementing RESTful API}
+
+\input{lib/Api.lhs}
+
+\section{Application Overview}
+
+\subsection{Server Side}
+The most important part of this project is running on the server side. This includes the neural network training algorithm and the REST API that allows the user to easily use the fruit prediction software.
+
+\subsection{Client Side (Android App)}
+The user can manually convert a JPEG image to a base64 encoded value and send that to the API.
+To streamline the process of image submission, we have developed an Android mobile app using Kotlin. This app allows users to capture pictures of fruits directly from their device. The app automatically converts the captured JPEG image into a base64-encoded string and sends it to the API. This makes this process more accessible and user-friendly.
+
+Once the image is sent to the API, it is processed by a neural network, which predicts the type of fruit in the image. The prediction is then sent back to the app. Finally, the app displays the predicted fruit label to the user.
+
+The code for the app has been omitted from this report, as it was deemed less relevant due to the absence of Haskell code.
+
+\input{Howto.tex}
+
+% \input{lib/Syntax.lhs}
+
+% \input{lib/Prove.lhs}
+
+% \input{lib/Visual.lhs}
+
+% \input{exec/Main.lhs}
+
+% \input{test/simpletests.lhs}
+
+\input{Conclusion.tex}
+
+\addcontentsline{toc}{section}{Bibliography}
+\bibliographystyle{alpha}
+\bibliography{references.bib}
+
+\end{document}

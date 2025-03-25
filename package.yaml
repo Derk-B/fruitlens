@@ -1,6 +1,6 @@
 name:                fruitlens
 version:             0.1.0.0
-github:              "githubuser/fruitlens"
+github:              "Derk-B/fruitlens"
 license:             BSD-3-Clause
 author:              "Author name here"
 maintainer:          "example@example.com"
@@ -8,7 +8,10 @@ copyright:           "2025 Author name here"
 
 extra-source-files:
 - README.md
-- CHANGELOG.md
+- Conclusion.tex
+- latexmacros.tex
+- references.bib
+- report.tex
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -17,7 +20,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/fruitlens#readme>
+description:         Please see the README on GitHub at <https://github.com/Derk-B/fruitlens#readme>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -33,45 +36,39 @@ dependencies:
 - vector
 - split
 - JuicyPixels-extra
+- QuickCheck
+- hspec
+- lens
+- mtl
+- parsec
+- template-haskell
+- graphviz
+- directory
+- containers
 
 ghc-options:
 - -Wall
-- -Wcompat
-- -Widentities
-- -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
-- -Wmissing-export-lists
-- -Wmissing-home-modules
-- -Wpartial-fields
-- -Wredundant-constraints
 
 library:
-  source-dirs: src
+  source-dirs: lib
   exposed-modules:
-    - Lib
     - FruitLens
-    - FruitLens.API
-    - FruitLens.NeuralNetwork
-    - FruitLens.Utils
+    # - API
+    # - NeuralNetwork
+    # - Utils
 
 executables:
   fruitlens-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+    main:                Main.lhs
+    source-dirs:         exec
     dependencies:
-    - fruitlens
+      - fruitlens
 
 tests:
   fruitlens-test:
-    main:                Spec.hs
+    main:                simpletests.lhs
     source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
     dependencies:
-    - fruitlens
+      - fruitlens
+      - QuickCheck
+      - hspec
