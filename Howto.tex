@@ -1,0 +1,14 @@
+
+\section{How to use this?}
+
+You should have stack installed (see \url{https://haskellstack.org/}) and
+open a terminal in the same folder.
+
+\begin{itemize}
+  \item Download all the files from https://github.com/golbin/TensorFlow-MNIST/tree/master/mnist/data. Put these files in the root of the project. There is no need to decompress the files, our project will do that for you.
+  \item To compile and run the server: \verb|stack run|.
+  \item The server should then run on localhost:8080.
+  \item You can send an image to localhost:8080/api/fruitlens as a base64 encoded string, we recommend using something like Postman.
+  \item To run the training algorithm, run \verb|stack ghci| and load the NeuralNetwork.hs file. Then call the main function.
+  \item The app is not finished so it is not available yet.
+\end{itemize}
