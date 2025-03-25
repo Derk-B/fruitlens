@@ -8,11 +8,8 @@ and test some properties.
 module Main where
 
 import FruitLens
-import NeuralNetwork
-import API
-import Utils
 
-import Test.Hspec
+import Test.Hspec ( hspec, describe, it, shouldBe )
 import Test.Hspec.QuickCheck
 \end{code}
 
