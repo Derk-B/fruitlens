@@ -10,15 +10,17 @@ module FruitLens.NeuralNetwork
   , predictFruit
   , trainModel
   , FruitType(..)
+  , main
   ) where
 
+import Codec.Compression.GZip (decompress)
+import qualified Data.ByteString.Lazy as BS
+
 import Control.Monad
-import Data.Functor
 import Data.Ord
-import Data.List
+import Data.List ( foldl', maximumBy, transpose )
 import System.Random
 
-import FruitLens.Utils (gauss)
 
 -- | Fruit types that can be recognized
 data FruitType = Apple | Banana | Orange | Strawberry | Grape
@@ -44,8 +46,8 @@ type NeuralNetwork = [Layer]
 newModel :: [Int] -> IO NeuralNetwork
 newModel [] = error "newModel: cannot initialize layers with [] as input"
 newModel layers@(_:outputLayers) = do
-  biases <- mapM (\n -> replicateM n (gauss 0.01)) outputLayers
-  weights <- zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) layers outputLayers
+  biases <- mapM (\n -> replicateM n (randomRIO (-1,1) :: IO Float)) outputLayers
+  weights <- zipWithM (\m n -> replicateM n $ replicateM m (randomRIO (-1,1) :: IO Float)) layers outputLayers
   return (zip biases weights)
 
 -- | Activation function (ReLU)
@@ -53,9 +55,10 @@ activation :: Float -> Float
 activation x | x > 0      = x
              | otherwise  = 0
 
--- | Sigmoid activation function for output layer
-sigmoid :: Float -> Float
-sigmoid x = 1 / (1 + exp (-x))
+-- | Derivative of the activation function for the backpropagation
+activation' :: Float -> Float
+activation' x | x > 0  = 1
+              | otherwise = 0
 
 -- | Calculate the output of a single layer
 calculateLayerOutput :: [Float] -> Layer -> [Float]
@@ -65,6 +68,96 @@ calculateLayerOutput inputs (biases, weights) =
 -- | Feed forward through the entire neural network
 feedForward :: [Float] -> NeuralNetwork -> [Float]
 feedForward = foldl' calculateLayerOutput
+
+-- | Calculate the error at the output layer
+outputError :: [Float] -> [Float] -> [Float]
+outputError target output = zipWith (*) (zipWith (-) target output) (map activation' output)
+
+-- | Calculate the error at a hidden layer
+hiddenError :: [Float] -> Weights -> [Float] -> [Float]
+hiddenError nextError weights currentOutput = 
+  zipWith (*) (map sum $ transpose $ zipWith (\w e -> map (* e) w) weights nextError) (map activation' currentOutput)
+
+backpropagate :: [Float] -> [Float] -> NeuralNetwork -> ([Float], [Layer])
+backpropagate input target network = 
+  let -- Forward pass: compute outputs for each layer
+      outputs = scanl calculateLayerOutput input network
+      output = last outputs
+      
+      -- Compute output error
+      outputErrors = outputError target output
+      
+      -- Backward pass: compute errors and deltas for each layer
+      (_, deltas) = foldr (\(layer, layerOutput) (nextErrors, acc) -> 
+        let -- Compute errors for the current layer
+            errors = hiddenError nextErrors (snd layer) layerOutput
+            -- Compute deltas for the current layer
+            deltaBiases = errors
+            deltaWeights = map (\e -> map (* e) layerOutput) errors
+        in (errors, (deltaBiases, deltaWeights) : acc))
+        (outputErrors, []) (zip network (init outputs))
+  in (output, deltas)
+
+updateNetwork :: NeuralNetwork -> [Layer] -> Float -> NeuralNetwork
+updateNetwork network deltas learningRate = 
+  zipWith (\(biases, weights) (deltaBiases, deltaWeights) -> 
+    (zipWith (-) biases (map (* learningRate) deltaBiases), 
+     zipWith (\w dw -> zipWith (-) w (map (* learningRate) dw)) weights deltaWeights))
+    network deltas
+
+prettyPrint :: NeuralNetwork -> String
+prettyPrint [] = []
+prettyPrint ((bs,ws):ls) = concat (zipWith (\b w -> show b ++ " | " ++ show w ++ "\n") bs ws) ++ "\n" ++ prettyPrint ls
+
+train :: [Float] -> [Float] -> NeuralNetwork -> Float -> IO NeuralNetwork
+train input target network learningRate = do
+  putStrLn $ show input ++ " - " ++ show target
+  -- putStrLn $ "Network: " ++ show network ++ "\n"
+  let (output, deltas) = backpropagate input target network
+  -- putStrLn $ "O,d: " ++ show (output, deltas) ++ "\n"
+  return $ updateNetwork network deltas learningRate
+
+getImage s n = fromIntegral . BS.index s . (n*28^2 + 16 +) <$> [0..28^2 - 1]
+getX     s n = (/ 256) <$> getImage s n
+getLabel s n = fromIntegral $ BS.index s (n + 8)
+getY     s n = fromIntegral . fromEnum . (getLabel s n ==) <$> [0..9]
+
+
+main :: IO ()
+main = do
+  [trainI, trainL, testI, testL] <- mapM ((decompress  <$>) . BS.readFile)
+    [ "train-images-idx3-ubyte.gz"
+    , "train-labels-idx1-ubyte.gz"
+    ,  "t10k-images-idx3-ubyte.gz"
+    ,  "t10k-labels-idx1-ubyte.gz"
+    ]
+  -- print $ map length [trainI, trainL, testI, testL]
+  -- network <- newModel [784, 30, 10]
+  -- initNet <- newModel [2,2,1]
+  let initNet = [([1,1],[[1,1],[1,1]]),([1],[[1,1]])]
+  putStrLn $ "INit model: " ++ show initNet
+
+  let epochs = 0
+  -- let trainData = getX trainI <$> [0..epochs]
+  -- let targetData = getY trainL <$> [0..epochs]
+  
+  let trainData = [[0,0], [0,1], [1,0], [1,1]]
+  let targetData = [[0], [0], [0], [1]]
+
+  -- Train the network
+  trainedNetwork <- foldM (\network _-> foldM (\net (input, target) -> train input target net 0.02 ) network $ zip trainData targetData) initNet [0..epochs]
+
+  -- Test the network
+  let predicted = map (\d -> feedForward d trainedNetwork) $ take 4 trainData
+  -- putStrLn $ "Predicted: " ++ show predicted
+
+  print trainedNetwork
+  
+  let  bestOf = fst . maximumBy (comparing snd) . zip [0..]
+  let guesses = bestOf . (\n -> feedForward (getX testI n) trainedNetwork) <$> [0..9999]
+  let answers = getLabel testL <$> [0..9999]
+  putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++
+    " / 10000"
 
 -- | Extract features from image data
 -- Each pixel is represented as [r,g,b] and the image is a 2D array of pixels
@@ -128,6 +221,7 @@ predictFruit imageData =
                          else if avgB > avgR && avgB > avgG
                               then fruitTypeToString Grape
                               else "unknown"
+
 
 -- | Train the neural network model (placeholder)
 -- In a real implementation, this would use backpropagation
