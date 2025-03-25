@@ -30,7 +30,7 @@ In this project, a fruit dataset, named Fruits-360 \cite{oltean_fruits-360_2017}
 
 The dataset contains images of 5 main classes of fruits (Apple, Banana, Orange, Strawberry, and Grape) , with each image in the format of $100 \times 100 \times 3$ (width, height, and channels).
 
-\input{lib/CNN.lhs}
+% \input{lib/CNN.lhs}
 
 \subsection{Neural Network Architecture}
 Feed-forward propagation is the fundamental process by which neural networks transform input data into output predictions. It's called "feed-forward" because information flows in one direction - from the input layer, through hidden layers, to the output layer, without any loops or feedback connections.
@@ -48,7 +48,7 @@ The first parameter [Float] represents the input features. These could be any nu
 
 The extractFeatures function transforms raw image data into the input features the neural network can process:
 
-\input{lib/Shape.lhs}
+% \input{lib/Shape.lhs}
 
 This function:
 \begin{enumerate}
@@ -162,13 +162,13 @@ The output of the model should be a 1D array of floats. Each float value represe
 
 \subsection{Training and Inference}
 
-\input{lib/Train.lhs}
+% \input{lib/Train.lhs}
 
 % Terminal output during training here
 
 \section{Implementing RESTful API}
 
-\input{lib/Api.lhs}
+\input{lib/API.lhs}
 
 \section{Application Overview}
 
