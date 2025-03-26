@@ -31,6 +31,7 @@ dependencies:
 - aeson
 - base64-bytestring
 - base16-bytestring
+- binary
 - gloss
 - JuicyPixels
 - vector

@@ -7,3 +7,4 @@ fruits-360/
 **/.idea/
 **/.gradle/
 **/local.properties
+trained_model.bin

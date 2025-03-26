@@ -13,6 +13,9 @@ import Data.Ord
 import qualified GHC.Int
 import System.Random
 import Utils (gauss)
+import Data.Binary (encode, decode)
+import qualified Data.ByteString.Lazy as BL
+import System.Directory (doesFileExist)
 
 -- | Type aliases for neural network components
 type Biases = [Float]
@@ -155,15 +158,49 @@ train trainI trainL testI testL = do
   -- Apple 6, apple 10, banana 1, banana 3
   -- [30000, 32, 3] + 40 training items      => 826/826
   -- [30000, 32, 2] + complete training data => 802/826
-  initialModel <- newBrain [30000, 32, 2]
-  let smartModel = foldl' (\net (input, label) -> learn input label net) initialModel $ zip trainI trainL
-  let bestOf = fst . maximumBy (comparing snd) . zip ([0 ..] :: [Float])
-  let guesses = bestOf . (`feedForward` smartModel) <$> testI
-  let answers = bestOf <$> testL
-  -- print answers
-  putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
+  -- Initialize the model
+  let modelFile = "trained_model.bin"
 
-  print (head guesses, head answers, head testL)
+  -- Check if the model file exists
+  modelExists <- doesFileExist modelFile
+
+  if modelExists
+    then do
+      -- Load the model from the file
+      smartModel <- loadModel modelFile
+      putStrLn "Model loaded from trained_model.bin"
+
+      -- Test the loaded model
+      let bestOf = fst . maximumBy (comparing snd) . zip ([0 ..] :: [Float])
+      let guesses = bestOf . (`feedForward` smartModel) <$> testI
+      let answers = bestOf <$> testL
+      putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
+
+      print (head guesses, head answers, head testL)
+    else do
+      -- Train the model
+      initialModel <- newBrain [30000, 32, 2]
+      let smartModel = foldl' (\net (input, label) -> learn input label net) initialModel $ zip trainI trainL
+
+      -- Save the trained model to a file
+      saveModel modelFile smartModel
+      putStrLn "Model saved to trained_model.bin"
+
+      -- Test the model
+      let bestOf = fst . maximumBy (comparing snd) . zip ([0 ..] :: [Float])
+      let guesses = bestOf . (`feedForward` smartModel) <$> testI
+      let answers = bestOf <$> testL
+      putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
+
+      print (head guesses, head answers, head testL)
   return ()
+
+-- | Save the neural network model to a file
+saveModel :: FilePath -> NeuralNetwork -> IO ()
+saveModel filePath model = BL.writeFile filePath (encode model)
+
+-- | Load the neural network model from a file
+loadModel :: FilePath -> IO NeuralNetwork
+loadModel filePath = decode <$> BL.readFile filePath
 
 \end{code}

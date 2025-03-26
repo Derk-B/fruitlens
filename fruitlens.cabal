@@ -47,6 +47,7 @@ library
     , base >=4.7 && <5
     , base16-bytestring
     , base64-bytestring
+    , binary
     , bytestring
     , containers
     , directory
@@ -81,6 +82,7 @@ executable fruitlens-exe
     , base >=4.7 && <5
     , base16-bytestring
     , base64-bytestring
+    , binary
     , bytestring
     , containers
     , directory
@@ -117,6 +119,7 @@ test-suite fruitlens-test
     , base >=4.7 && <5
     , base16-bytestring
     , base64-bytestring
+    , binary
     , bytestring
     , containers
     , directory
