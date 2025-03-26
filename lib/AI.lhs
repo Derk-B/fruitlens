@@ -225,27 +225,19 @@ replaceLayer (l:ls) oldLayer newLayer
   | l == oldLayer = newLayer : ls
   | otherwise     = l : replaceLayer ls oldLayer newLayer
 
-trainModel :: NeuralNetwork -> [(Image, FruitType)] -> Int -> Float -> IO NeuralNetwork
+trainModel :: NeuralNetwork -> [(Image, [Float])] -> Int -> Float -> IO NeuralNetwork
 trainModel initialModel trainingData epochs learningRate = do
-  let preparedTrainingData = map (\(image, fruitType) ->
-                                   (image, toOneHotVector fruitType))
-                                  trainingData
   foldM trainEpoch initialModel [1..epochs]
   where
     trainEpoch model epoch = do
       putStrLn $ "Epoch " ++ show epoch ++ "/" ++ show epochs
-
-      foldM (\currentModel example -> trainIteration currentModel example learningRate)
-            model
-            preparedTrainingData
+      foldM (\currentModel example -> trainIteration currentModel example learningRate) model trainingData
 
 argmax :: [Float] -> Int
 argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
 
 predictFruit :: NeuralNetwork -> Image -> FruitType
-predictFruit model image =
-  let prediction = feedForwardImage image model
-  in toEnum (argmax prediction)
+predictFruit model image = toEnum (argmax (feedForwardImage image model))
 
 -- Model Persistence
 -- saveModel :: FilePath -> NeuralNetwork -> IO ()
