@@ -17,190 +17,241 @@ import Data.Binary (encode, decode)
 import qualified Data.ByteString.Lazy as BL
 import System.Directory (doesFileExist)
 
--- | Type aliases for neural network components
+-- Fruit types that can be recognized by the neural network
+data FruitType = Apple | Banana | Orange | Strawberry | Grape
+  deriving (Show, Eq, Enum, Bounded)
+
 type Biases = [Float]
-
+type PoolSize = Int
 type Weights = [[Float]]
+type FullyConnectedLayer = (Biases, Weights)
+type Kernel = [[Float]]
+type Image = [[[Float]]]
 
-type Layer = (Biases, Weights)
-
+data Layer = ConvLayer ConvolutionalLayer
+           | MaxPoolingLayer PoolSize
+           | FullyConnected FullyConnectedLayer
+           deriving (Eq)
+type ConvolutionalLayer = ([Kernel], Biases)
 type NeuralNetwork = [Layer]
 
--- | Create a new neural network model with the given layer sizes
--- The first element is the number of inputs, and the last element
--- is the number of outputs. Elements in between are hidden layer sizes.
-newModel :: [Int] -> IO NeuralNetwork
-newModel [] = error "newModel: cannot initialize layers with [] as input"
-newModel layers@(_ : outputLayers) = do
-  let biases = map (`replicate` 1) outputLayers
-  weights <- zipWithM (\m n -> replicateM n $ replicateM m (gauss 0.01)) layers outputLayers
-  return (zip biases weights)
+reLuactivation :: Float -> Float
+reLuactivation x | x > 0     = x
+                 | otherwise = 0
 
-newBrain :: [Int] -> IO NeuralNetwork
-newBrain szs@(_ : ts) =
-  zip (flip replicate 1 <$> ts)
-    <$> zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) szs ts
+reLuDerivative :: Float -> Float
+reLuDerivative x | x > 0     = 1
+                 | otherwise = 0
 
-relu :: Float -> Float
-relu = max 0
+softmax :: [Float] -> [Float]
+softmax xs =
+  let expXs = map exp xs
+      sumExpXs = sum expXs
+  in map (/ sumExpXs) expXs
 
-relu' :: (Ord a1, Num a1, Num a2) => a1 -> a2
-relu' x
-  | x < 0 = 0
-  | otherwise = 1
+crossEntropyLoss :: [Float] -> [Float] -> Float
+crossEntropyLoss predicted target = sum $ zipWith (\t p ->
+                                          if t > 0
+                                          then -t * log p
+                                          else 0
+                                       ) target (map (\p -> max 1e-15 (min (1 - 1e-15) p)) predicted)
 
-calculateLayerOutput :: [Float] -> Layer -> [Float]
-calculateLayerOutput layerInput (biases, weights) = zipWith (+) biases $ sum . zipWith (*) layerInput <$> weights
+crossEntropyDerivative :: [Float] -> [Float] -> [Float]
+crossEntropyDerivative predicted target = zipWith (-) predicted target
 
-feedForward :: [Float] -> [([Float], [[Float]])] -> [Float]
-feedForward = foldl' (((relu <$>) .) . calculateLayerOutput)
+convolve :: Image -> Kernel -> [[Float]]
+convolve img kernel =
+  let kRows      = length kernel
+      kCols      = length (head kernel)
+      iRows      = length img
+      iCols      = length (head img)
+      numChannels = length (head (head img))
+  in [[sum [sum [(kernel !! ki !! kj) * (img !! (i + ki) !! (j + kj) !! c)
+                   | c <- [0 .. numChannels - 1]]
+           | ki <- [0 .. kRows - 1]
+           , kj <- [0 .. kCols - 1]]
+       | j <- [0 .. iCols - kCols]]
+     | i <- [0 .. iRows - kRows]]
 
--- Returns a the activations and weighted inputs.
--- So in a layer we have a list of input values, we apply the weights to the inputs values and call it 'layerOutput'.
--- Then we apply the activation function (relu) to the 'layerOutput' and call it 'activatedOutput'
--- Then we return (activatedOutputs, layerOutputs)
-getActivatedAndWeightedOutputs :: [Float] -> NeuralNetwork -> ([[Float]], [[Float]])
-getActivatedAndWeightedOutputs initialInputs =
-  foldl'
-    ( \(inputs@(nodeInput : _), prevOutputs) layer ->
-        let layerOutput = calculateLayerOutput nodeInput layer
-         in ((relu <$> layerOutput) : inputs, layerOutput : prevOutputs)
-    )
-    ([initialInputs], [])
+combineFeatureMaps :: [[[Float]]] -> Image
+combineFeatureMaps featureMaps =
+  let h = length (head featureMaps)
+      w = length (head (head featureMaps))
+  in [[[fm !! i !! j | fm <- featureMaps]
+       | j <- [0 .. w - 1]]
+       | i <- [0 .. h - 1]]
 
-dCost :: (Num a, Ord a) => a -> a -> a
-dCost a y
-  | y == 1 && a >= y = 0
-  | otherwise = a - y
+applyConvLayer :: Image -> ConvolutionalLayer -> Image
+applyConvLayer img (kernels, biases) =
+  let featureMaps = zipWith (\kernel bias ->
+                        let convMap = convolve img kernel
+                        in map (map (\x -> reLuactivation (x + bias))) convMap
+                      ) kernels biases
+  in combineFeatureMaps featureMaps
 
-deltas :: [Float] -> [Float] -> [([Float], [[Float]])] -> ([[Float]], [[Float]])
-deltas initialInputs targets layers =
-  let (activatedOutputs@(activatedValue : _), weightedOutput : wos) = getActivatedAndWeightedOutputs initialInputs layers
-      -- Delta0 is the delta for the output layer.
-      -- Backpropagation works in reverse, so that is why we first calculate the output layer delta.
-      delta0 = zipWith (*) (zipWith dCost activatedValue targets) (relu' <$> weightedOutput)
-   in (reverse activatedOutputs, f (transpose . snd <$> reverse layers) wos [delta0])
+applyMaxPoolingLayer :: Image -> PoolSize -> Image
+applyMaxPoolingLayer img poolSize =
+  let height   = length img
+      width    = length (head img)
+      channels = length (head (head img))
+      pooledH  = height `div` poolSize
+      pooledW  = width `div` poolSize
+      maxPool i j = [maximum[img !! (i + di) !! (j + dj) !! c
+                              | di <- [0 .. poolSize - 1]
+                              , dj <- [0 .. poolSize - 1]]
+                    | c <- [0 .. channels - 1]]
+  in [[maxPool (i * poolSize) (j * poolSize)
+       | j <- [0 .. pooledW - 1]]
+       | i <- [0 .. pooledH - 1]]
+
+flattenImage :: Image -> [Float]
+flattenImage = concatMap concat
+
+calculateFullyConnectedLayerOutput :: [Float] -> FullyConnectedLayer -> [Float]
+calculateFullyConnectedLayerOutput inputs (biases, weights) =
+  map reLuactivation $ zipWith (+) biases $ map (sum . zipWith (*) inputs) weights
+
+feedForwardImage :: Image -> NeuralNetwork -> [Float]
+feedForwardImage img [] = flattenImage img
+feedForwardImage img (layer:layers) =
+  case layer of
+    ConvLayer conv       -> feedForwardImage (applyConvLayer img conv) layers
+    MaxPoolingLayer size -> feedForwardImage (applyMaxPoolingLayer img size) layers
+    FullyConnected _     -> feedForwardFullyConnected (flattenImage img) (layer:layers)
+
+feedForwardFullyConnected :: [Float] -> NeuralNetwork -> [Float]
+feedForwardFullyConnected =
+  foldl (\acc layer ->
+           case layer of
+             FullyConnected fc -> calculateFullyConnectedLayerOutput acc fc
+             _ -> error "feedForwardFullyConnected: Expected only fully connected layers."
+        )
+
+randomKernel :: Int -> Int -> IO Kernel
+randomKernel i j = replicateM i (replicateM j (gauss 0.001))
+
+newModel :: IO NeuralNetwork
+newModel = do
+  -- First convolutional layer: 8 kernels (3×3)
+  conv1Kernels <- replicateM 8 (randomKernel 3 3)
+  conv1Biases  <- replicateM 8 (gauss 0.01)
+  let convLayer1 = ConvLayer (conv1Kernels, conv1Biases)
+
+  -- First max pooling layer with pool size 2×2
+  let poolLayer1 = MaxPoolingLayer 2
+
+  -- Second convolutional layer: 16 3x3 kernels
+  conv2Kernels <- replicateM 16 (randomKernel 3 3)
+  conv2Biases  <- replicateM 16 (gauss 0.01)
+  let convLayer2 = ConvLayer (conv2Kernels, conv2Biases)
+
+  -- Second max pooling layer with pool size 2×2
+  let poolLayer2 = MaxPoolingLayer 2
+
+  -- Fully connected layer 1: 8464 -> 100
+  fc1Biases  <- replicateM 100 (gauss 0.01)
+  fc1Weights <- replicateM 100 (replicateM 8464 (gauss 0.01))
+  let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
+
+  -- Fully connected layer 2: 100 -> 5 (one for each fruit type)
+  fc2Biases  <- replicateM 5 (gauss 0.01)
+  fc2Weights <- replicateM 5 (replicateM 100 (gauss 0.01))
+  let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
+
+  return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
+
+forwardPass :: Image -> NeuralNetwork -> ([Float], [Image])
+forwardPass inputImage network =
+  let (outputs, images) = foldl propagateLayer ([], [inputImage]) network
+      finalOutput = head outputs
+  in (finalOutput, images)
   where
-    f _ [] dvs = dvs
-    f (wm : wms) (zv : zvs) dvs@(dv : _) =
-      f wms zvs $
-        (: dvs) $
-          zipWith (*) [sum $ zipWith (*) row dv | row <- wm] (relu' <$> zv)
+    propagateLayer (outputs, images@(lastImage:_)) layer =
+      case layer of
+        ConvLayer convLayer ->
+          let newImage = applyConvLayer lastImage convLayer
+          in (outputs, newImage : images)
+        MaxPoolingLayer poolSize ->
+          let newImage = applyMaxPoolingLayer lastImage poolSize
+          in (outputs, newImage : images)
+        FullyConnected fcLayer ->
+          let flatInput = flattenImage lastImage
+              layerOutput = calculateFullyConnectedLayerOutput flatInput fcLayer
+          in (softmax layerOutput : outputs, images)
 
-learningRate :: Float
-learningRate = 0.002
+backpropFullyConnected :: Float -> [Float] -> [Float] -> [Float] -> ((Biases, Weights), [Float])
+backpropFullyConnected learningRate inputs target layerOutput =
+  let errorDerivative = crossEntropyDerivative layerOutput target
 
-descend :: [Float] -> [Float] -> [Float]
-descend av dv = zipWith (-) av ((learningRate *) <$> dv)
+      activationDerivatives = map reLuDerivative layerOutput
 
-learn :: [Float] -> [Float] -> [([Float], [[Float]])] -> [([Float], [[Float]])]
-learn inputs targets layers =
-  let (avs, dvs) = deltas inputs targets layers
-   in zip (zipWith descend (fst <$> layers) dvs) $
-        zipWith3
-          (\wvs av dv -> zipWith (\wv d -> descend wv ((d *) <$> av)) wvs dv)
-          (snd <$> layers)
-          avs
-          dvs
+      delta = zipWith (*) errorDerivative activationDerivatives
 
-getImage s n = fromIntegral . BS.index s . (n * 28 ^ 2 + 16 +) <$> [0 .. 28 ^ 2 - 1]
+      biasUpdates = map (learningRate *) delta
 
-getX s n = (/ 256) <$> getImage s n
+      weightUpdates = [map ((learningRate *) . (x *)) delta | x <- inputs]
 
-getLabel s n = fromIntegral $ BS.index s (n + 8)
+      propagatedError = [sum $ zipWith (*) delta row | row <- transpose weightUpdates]
+  in ((biasUpdates, weightUpdates), propagatedError)
 
-getY s n = fromIntegral . fromEnum . (getLabel s n ==) <$> [0 .. 9]
+backpropagateLayer :: Float -> (NeuralNetwork, [Float]) -> (Layer, Image) -> IO (NeuralNetwork, [Float])
+backpropagateLayer lr (currentModel, errorToPropagate) (layer, layerInput) =
+  case layer of
+    FullyConnected fcLayer -> do
+      let ((biasUpdates, weightUpdates), newErrorToPropagate) = backpropFullyConnected lr (flattenImage layerInput) targetOutput (calculateFullyConnectedLayerOutput (flattenImage layerInput) fcLayer)
+      let updatedLayer = FullyConnected (biasUpdates, weightUpdates)
+      return (replaceLayer currentModel layer updatedLayer, newErrorToPropagate)
 
-render :: (Integral a) => a -> Char
-render n = let s = " .:oO@" in s !! (fromIntegral n * length s `div` 256)
+    _ -> return (currentModel, errorToPropagate)
 
-main :: IO ()
-main = do
-  [trainI, trainL, testI, testL] <-
-    mapM
-      ((decompress <$>) . BS.readFile)
-      [ "train-images-idx3-ubyte.gz",
-        "train-labels-idx1-ubyte.gz",
-        "t10k-images-idx3-ubyte.gz",
-        "t10k-labels-idx1-ubyte.gz"
-      ]
-  initialModel <- newBrain [784, 30, 10]
-  n <- (`mod` 10000) <$> randomIO
-  putStr . unlines $
-    take 28 $
-      take 28 <$> iterate (drop 28) (render <$> getImage testI n)
+trainIteration :: NeuralNetwork -> (Image, [Float]) -> Float -> IO NeuralNetwork
+trainIteration model (inputImage, targetOutput) learningRate = do
+  let (outputs, intermediateImages) = forwardPass inputImage model
 
-  let epochs = 9999
-      example = getX testI n
-      bs = foldl' (\b n -> learn (getX trainI n) (getY trainL n) b) initialModel [0 .. epochs]
-      smart = bs
-      cute d score = show d ++ ": " ++ replicate (round $ 70 * min 1 score) '+'
-      bestOf = fst . maximumBy (comparing snd) . zip [0 ..]
+  let initialError = crossEntropyDerivative outputs targetOutput
 
-  -- forM_ bs $ putStrLn . unlines . cute [0..9] . feedForward example
+  (updatedModel, _) <- foldM (backpropagateLayer learningRate)
+                             (model, initialError)
+                             (zip (reverse model) (reverse intermediateImages))
+  return updatedModel
 
-  putStrLn $ "best guess: " ++ show (bestOf $ feedForward example smart)
 
-  let guesses = bestOf . (\n -> feedForward (getX testI n) smart) <$> [0 .. epochs]
-  let answers = getLabel testL <$> [0 .. epochs]
-  putStrLn $
-    show (sum $ fromEnum <$> zipWith (==) guesses answers)
-      ++ " / 10000"
+toOneHotVector :: FruitType -> [Float]
+toOneHotVector fruitType = [if fromEnum fruitType == i then 1.0 else 0.0 | i <- [0..4]]
 
-train :: [[Float]] -> [[Float]] -> [[Float]] -> [[Float]] -> IO ()
-train trainI trainL testI testL = do
-  -- initialModel <- newBrain [30000, 512, 2] -- 243 / 1026
+replaceLayer :: NeuralNetwork -> Layer -> Layer -> NeuralNetwork
+replaceLayer [] _ _ = []
+replaceLayer (l:ls) oldLayer newLayer
+  | l == oldLayer = newLayer : ls
+  | otherwise     = l : replaceLayer ls oldLayer newLayer
 
-  -- Apple 6, apple 10, banana 1, banana 3, pear 1
-  -- [30k, 20, 3] + 40 training items      => 700/1026
-  -- [30k, 20, 3] + complete training data => 264/1026
+trainModel :: NeuralNetwork -> [(Image, FruitType)] -> Int -> Float -> IO NeuralNetwork
+trainModel initialModel trainingData epochs learningRate = do
+  let preparedTrainingData = map (\(image, fruitType) ->
+                                   (image, toOneHotVector fruitType))
+                                  trainingData
+  foldM trainEpoch initialModel [1..epochs]
+  where
+    trainEpoch model epoch = do
+      putStrLn $ "Epoch " ++ show epoch ++ "/" ++ show epochs
 
-  -- Apple 6, apple 10, banana 1, banana 3
-  -- [30000, 32, 3] + 40 training items      => 826/826
-  -- [30000, 32, 2] + complete training data => 802/826
-  -- Initialize the model
-  let modelFile = "trained_model.bin"
+      foldM (\currentModel example -> trainIteration currentModel example learningRate)
+            model
+            preparedTrainingData
 
-  -- Check if the model file exists
-  modelExists <- doesFileExist modelFile
+argmax :: [Float] -> Int
+argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
 
-  if modelExists
-    then do
-      -- Load the model from the file
-      smartModel <- loadModel modelFile
-      putStrLn "Model loaded from trained_model.bin"
+predictFruit :: NeuralNetwork -> Image -> FruitType
+predictFruit model image =
+  let prediction = feedForwardImage image model
+  in toEnum (argmax prediction)
 
-      -- Test the loaded model
-      let bestOf = fst . maximumBy (comparing snd) . zip ([0 ..] :: [Float])
-      let guesses = bestOf . (`feedForward` smartModel) <$> testI
-      let answers = bestOf <$> testL
-      putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
+-- Model Persistence
+-- saveModel :: FilePath -> NeuralNetwork -> IO ()
+-- saveModel filePath model = BL.writeFile filePath (encode model)
 
-      print (head guesses, head answers, head testL)
-    else do
-      -- Train the model
-      initialModel <- newBrain [30000, 32, 2]
-      let smartModel = foldl' (\net (input, label) -> learn input label net) initialModel $ zip trainI trainL
-
-      -- Save the trained model to a file
-      saveModel modelFile smartModel
-      putStrLn "Model saved to trained_model.bin"
-
-      -- Test the model
-      let bestOf = fst . maximumBy (comparing snd) . zip ([0 ..] :: [Float])
-      let guesses = bestOf . (`feedForward` smartModel) <$> testI
-      let answers = bestOf <$> testL
-      putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
-
-      print (head guesses, head answers, head testL)
-  return ()
-
--- | Save the neural network model to a file
-saveModel :: FilePath -> NeuralNetwork -> IO ()
-saveModel filePath model = BL.writeFile filePath (encode model)
-
--- | Load the neural network model from a file
-loadModel :: FilePath -> IO NeuralNetwork
-loadModel filePath = decode <$> BL.readFile filePath
+-- loadModel :: FilePath -> IO NeuralNetwork
+-- loadModel filePath = decode <$> BL.readFile filePath
 
 \end{code}
