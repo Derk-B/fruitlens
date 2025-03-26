@@ -215,10 +215,6 @@ trainIteration model (inputImage, targetOutput) learningRate = do
                              (zip (reverse model) (reverse intermediateImages))
   return updatedModel
 
-
-toOneHotVector :: FruitType -> [Float]
-toOneHotVector fruitType = [if fromEnum fruitType == i then 1.0 else 0.0 | i <- [0..4]]
-
 replaceLayer :: NeuralNetwork -> Layer -> Layer -> NeuralNetwork
 replaceLayer [] _ _ = []
 replaceLayer (l:ls) oldLayer newLayer
