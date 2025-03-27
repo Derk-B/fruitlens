@@ -4,6 +4,9 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -29,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -134,6 +138,23 @@ class CameraPreviewViewModel : ViewModel() {
         val buffer: ByteBuffer = planeProxy.buffer
         val bytes = ByteArray(buffer.remaining())
         buffer.get(bytes)
-        return bytes
+
+        // Convert YUV to JPEG
+        val yuvImage = YuvImage(
+            bytes,
+            ImageFormat.NV21,
+            image.width,
+            image.height,
+            null
+        )
+
+        val outputStream = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(
+            Rect(0, 0, image.width, image.height),
+            90, // JPEG quality (0-100)
+            outputStream
+        )
+
+        return outputStream.toByteArray()
     }
 }
