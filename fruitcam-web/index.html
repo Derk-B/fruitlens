@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FruitLens Web</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>FruitLens Web</h1>
+
+      <div class="upload-section">
+        <h2>Upload Image (JPG)</h2>
+        <input type="file" id="imageInput" accept="image/*" />
+        <button id="uploadBtn">Upload Image</button>
+      </div>
+
+      <div class="result-section">
+        <h2>Results</h2>
+        <div id="resultDisplay">
+          <img id="uploadedImage" style="display: none; max-width: 300px" />
+          <div id="predictionResult"></div>
+        </div>
+      </div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
