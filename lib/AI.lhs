@@ -18,7 +18,7 @@ import qualified Data.ByteString.Lazy as BL
 import System.Directory (doesFileExist)
 
 -- Fruit types that can be recognized by the neural network
-data FruitType = Apple | Banana | Orange | Strawberry | Grape
+data FruitType = Apple | Banana | Pear
   deriving (Show, Eq, Enum, Bounded)
 
 type Biases = [Float]
@@ -194,26 +194,23 @@ backpropFullyConnected learningRate inputs target layerOutput =
       propagatedError = [sum $ zipWith (*) delta row | row <- transpose weightUpdates]
   in ((biasUpdates, weightUpdates), propagatedError)
 
-backpropagateLayer :: Float -> (NeuralNetwork, [Float]) -> (Layer, Image) -> IO (NeuralNetwork, [Float])
-backpropagateLayer lr (currentModel, errorToPropagate) (layer, layerInput) =
-  case layer of
-    FullyConnected fcLayer -> do
-      let ((biasUpdates, weightUpdates), newErrorToPropagate) = backpropFullyConnected lr (flattenImage layerInput) targetOutput (calculateFullyConnectedLayerOutput (flattenImage layerInput) fcLayer)
-      let updatedLayer = FullyConnected (biasUpdates, weightUpdates)
-      return (replaceLayer currentModel layer updatedLayer, newErrorToPropagate)
-
-    _ -> return (currentModel, errorToPropagate)
-
 trainIteration :: NeuralNetwork -> (Image, [Float]) -> Float -> IO NeuralNetwork
 trainIteration model (inputImage, targetOutput) learningRate = do
   let (outputs, intermediateImages) = forwardPass inputImage model
-
   let initialError = crossEntropyDerivative outputs targetOutput
 
-  (updatedModel, _) <- foldM (backpropagateLayer learningRate)
-                             (model, initialError)
-                             (zip (reverse model) (reverse intermediateImages))
+  (updatedModel, _) <- foldM (backpropagateLayer learningRate) (model, initialError) (zip (reverse model) (reverse intermediateImages))
   return updatedModel
+  where
+    backpropagateLayer :: Float -> (NeuralNetwork, [Float]) -> (Layer, Image) -> IO (NeuralNetwork, [Float])
+    backpropagateLayer lr (currentModel, errorToPropagate) (layer, layerInput) =
+      case layer of
+        FullyConnected fcLayer -> do
+          let ((biasUpdates, weightUpdates), newErrorToPropagate) = backpropFullyConnected lr (flattenImage layerInput) targetOutput (calculateFullyConnectedLayerOutput (flattenImage layerInput) fcLayer)
+          let updatedLayer = FullyConnected (biasUpdates, weightUpdates)
+          return (replaceLayer currentModel layer updatedLayer, newErrorToPropagate)
+
+        _ -> return (currentModel, errorToPropagate)
 
 replaceLayer :: NeuralNetwork -> Layer -> Layer -> NeuralNetwork
 replaceLayer [] _ _ = []
@@ -227,7 +224,24 @@ trainModel initialModel trainingData epochs learningRate = do
   where
     trainEpoch model epoch = do
       putStrLn $ "Epoch " ++ show epoch ++ "/" ++ show epochs
-      foldM (\currentModel example -> trainIteration currentModel example learningRate) model trainingData
+      foldM (\currentModel img -> trainIteration currentModel img learningRate) model trainingData
+
+evaluateModel :: NeuralNetwork -> [(Image, [Float])] -> IO ()
+evaluateModel trainedModel testData = do
+    let testResults = map (\(img, label) ->
+            let prediction = predictFruit trainedModel img
+                expectedFruit = case label of
+                    [1.0, 0.0, 0.0] -> Apple
+                    [0.0, 1.0, 0.0] -> Banana
+                    [0.0, 0.0, 1.0] -> Pear
+                    _ -> error "Invalid label"
+            in prediction == expectedFruit
+            ) testData
+
+    let accuracy = ((fromIntegral (length (filter id testResults)) / fromIntegral (length testResults)) * 100) :: Double
+
+    putStrLn $ "Test Accuracy: " ++ show accuracy ++ "%"
+
 
 argmax :: [Float] -> Int
 argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
