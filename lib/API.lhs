@@ -22,7 +22,9 @@ import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as BC
 import Data.List.Split (chunksOf)
 import Data.Vector.Storable (toList)
--- import NeuralNetwork (predictFruit)
+import AI (loadModel, feedForward, NeuralNetwork)
+import Data.List (maximumBy)
+import Data.Ord (comparing)
 import Web.Scotty (ActionM, get, html, json, jsonData, param, post, scotty)
 \end{code}
 }
@@ -44,17 +46,20 @@ Then \texttt{startServer} is defined, this function starts the web server on the
 \begin{code}
 -- | Start the web server on the specified port
 startServer :: Int -> IO ()
-startServer port = scotty port $ do
-  post "/api/fruitlens" predictImage
-  get "/" $ html "<h1>FruitLens API</h1><p>Send POST requests to /api/fruitlens with base64 encoded images</p>"
+startServer port = do
+  model <- loadModel "trained_model.bin"
+  scotty port $ do
+    post "/api/fruitlens" $ predictImage model
+    get "/" $ html "<h1>FruitLens API</h1><p>Send POST requests to /api/fruitlens with base64 encoded images</p>"
 
 \end{code}
 
 The \texttt{predictImage} functipon takes the jsonData, packs it and tries to decode it from Base64 to ByteString. If an error occurs, an error is simply returned by the API. Then, the function tries to decode the image to a \texttt{dynamicImage} from the \texttt{JuicyPixels} library, if that throws an error, the API, again, simply returns an error to the request. If the image can be decoded, the image is converted to an array of floats, which will be sent to the neural network to predict the fruit with. Lastly, the API returns the prediction to the requester. 
 
 \begin{code}
-predictImage :: ActionM ()
-predictImage = do
+-- | Predict the fruit type from an image using the neural network
+predictImage :: NeuralNetwork -> ActionM ()
+predictImage model = do
   (MyImage value) <- jsonData
   let decoded = B64.decode (BC.pack value)
   case decoded of
@@ -64,15 +69,20 @@ predictImage = do
         Left err -> Web.Scotty.json $ object ["error" .= ("Image decoding failed: " ++ err)]
         Right dynImage -> do
           let normalizedPixels = convertImage dynImage
+              prediction = feedForward normalizedPixels model
+              fruitIndex = fst $ maximumBy (comparing snd) $ zip [0..] prediction
+              confidence = prediction !! fruitIndex
+              fruitType :: String
+              fruitType = case fruitIndex of
+                0 -> "apple"
+                1 -> "banana"
+                _ -> "unknown"
 
-          -- Predict fruit type using our neural network
-          -- let fruitType = predictFruit normalizedPixels
-
-          -- Return both the image data and the prediction
+          -- Return both the prediction and confidence
           Web.Scotty.json $
             object
-              [ "prediction" .= ("fruitType" :: String),
-                "confidence" .= (0.85 :: Float) -- Placeholder confidence value
+              [ "prediction" .= (fruitType :: String),
+                "confidence" .= (confidence :: Float)
               ]
 \end{code}
 
