@@ -50,14 +50,10 @@ softmax xs =
   in map (/ sumExpXs) expXs
 
 crossEntropyLoss :: [Float] -> [Float] -> Float
-crossEntropyLoss predicted target = sum $ zipWith (\t p ->
-                                          if t > 0
-                                          then -t * log p
-                                          else 0
-                                       ) target (map (\p -> max 1e-15 (min (1 - 1e-15) p)) predicted)
+crossEntropyLoss predicted target = sum $ zipWith (\t p -> if t > 0 then -(t * log p) else 0) target (map (max 1e-15 . min (1 - 1e-15)) predicted)
 
 crossEntropyDerivative :: [Float] -> [Float] -> [Float]
-crossEntropyDerivative predicted target = zipWith (-) predicted target
+crossEntropyDerivative = zipWith (-)
 
 convolve :: Image -> Kernel -> [[Float]]
 convolve img kernel =
@@ -112,11 +108,12 @@ calculateFullyConnectedLayerOutput inputs (biases, weights) =
   map reLuactivation $ zipWith (+) biases $ map (sum . zipWith (*) inputs) weights
 
 feedForwardImage :: Image -> NeuralNetwork -> [Float]
-feedForwardImage img [] = flattenImage img
 feedForwardImage img (layer:layers) =
   case layer of
     ConvLayer conv       -> feedForwardImage (applyConvLayer img conv) layers
     MaxPoolingLayer size -> feedForwardImage (applyMaxPoolingLayer img size) layers
+    -- Fully connected layer does not reconstruct an Image type for recursion
+    -- but returns the final [Float] after computing all the fc layers using a foldl.
     FullyConnected _     -> feedForwardFullyConnected (flattenImage img) (layer:layers)
 
 feedForwardFullyConnected :: [Float] -> NeuralNetwork -> [Float]
@@ -166,16 +163,16 @@ forwardPass inputImage network =
       finalOutput = head outputs
   in (finalOutput, images)
   where
-    propagateLayer (outputs, images@(lastImage:_)) layer =
+    propagateLayer (outputs, images@(prevImage:_)) layer =
       case layer of
         ConvLayer convLayer ->
-          let newImage = applyConvLayer lastImage convLayer
+          let newImage = applyConvLayer prevImage convLayer
           in (outputs, newImage : images)
         MaxPoolingLayer poolSize ->
-          let newImage = applyMaxPoolingLayer lastImage poolSize
+          let newImage = applyMaxPoolingLayer prevImage poolSize
           in (outputs, newImage : images)
         FullyConnected fcLayer ->
-          let flatInput = flattenImage lastImage
+          let flatInput = flattenImage prevImage
               layerOutput = calculateFullyConnectedLayerOutput flatInput fcLayer
           in (softmax layerOutput : outputs, images)
 
@@ -241,7 +238,6 @@ evaluateModel trainedModel testData = do
     let accuracy = ((fromIntegral (length (filter id testResults)) / fromIntegral (length testResults)) * 100) :: Double
 
     putStrLn $ "Test Accuracy: " ++ show accuracy ++ "%"
-
 
 argmax :: [Float] -> Int
 argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
