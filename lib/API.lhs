@@ -22,7 +22,16 @@ import Data.Vector.Storable (toList)
 import AI (loadModel, feedForward, NeuralNetwork)
 import Data.List (maximumBy)
 import Data.Ord (comparing)
-import Web.Scotty (ActionM, get, html, json, jsonData, post, scotty)
+import Web.Scotty (ActionM, get, html, json, jsonData, post, scotty, middleware)
+import Network.Wai.Middleware.Cors
+import qualified Network.Wai as Wai
+
+appCorsResourcePolicy :: CorsResourcePolicy
+appCorsResourcePolicy = simpleCorsResourcePolicy
+  { corsOrigins        = Just (["http://localhost:3000"], True) -- Allow only your website
+  , corsMethods        = ["GET", "POST", "PUT", "DELETE"]      -- Allowed methods
+  , corsRequestHeaders = ["Content-Type"]                      -- Allowed headers
+  }
 \end{code}
 }
 
@@ -46,6 +55,7 @@ startServer :: Int -> IO ()
 startServer port = do
   model <- loadModel "trained_model.bin"
   scotty port $ do
+    middleware $ cors (const $ Just appCorsResourcePolicy)
     post "/api/fruitlens" $ predictImage model
     get "/" $ html "<h1>FruitLens API</h1><p>Send POST requests to /api/fruitlens with base64 encoded images</p>"
 

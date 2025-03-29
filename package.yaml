@@ -46,6 +46,8 @@ dependencies:
 - graphviz
 - directory
 - containers
+- wai
+- wai-cors
 
 ghc-options:
 - -Wall
