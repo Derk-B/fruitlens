@@ -1,17 +1,19 @@
+
+The code for the neural network was taken from https://crypto.stanford.edu/~blynn/haskell/brain.html.
+We adjusted it to make it compatible with learning types of fruits in images
 \begin{code}
 
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 module AI where
 
-import Codec.Compression.GZip (decompress)
 import Control.Monad
 import qualified Data.ByteString.Lazy as BS
 import Data.List (foldl', maximumBy, transpose)
 import Data.Ord
 import qualified GHC.Int
-import System.Random
 import Utils (gauss)
 import Data.Binary (encode, decode)
 import qualified Data.ByteString.Lazy as BL
@@ -103,49 +105,20 @@ learn inputs targets layers =
           avs
           dvs
 
+getImage :: Num b => BL.ByteString -> GHC.Int.Int64 -> [b]
 getImage s n = fromIntegral . BS.index s . (n * 28 ^ 2 + 16 +) <$> [0 .. 28 ^ 2 - 1]
+getX :: Fractional b => BL.ByteString -> GHC.Int.Int64 -> [b]
 
 getX s n = (/ 256) <$> getImage s n
 
+getLabel :: Num b => BL.ByteString -> GHC.Int.Int64 -> b
 getLabel s n = fromIntegral $ BS.index s (n + 8)
 
+getY :: Num b => BL.ByteString -> GHC.Int.Int64 -> [b]
 getY s n = fromIntegral . fromEnum . (getLabel s n ==) <$> [0 .. 9]
 
 render :: (Integral a) => a -> Char
 render n = let s = " .:oO@" in s !! (fromIntegral n * length s `div` 256)
-
-main :: IO ()
-main = do
-  [trainI, trainL, testI, testL] <-
-    mapM
-      ((decompress <$>) . BS.readFile)
-      [ "train-images-idx3-ubyte.gz",
-        "train-labels-idx1-ubyte.gz",
-        "t10k-images-idx3-ubyte.gz",
-        "t10k-labels-idx1-ubyte.gz"
-      ]
-  initialModel <- newBrain [784, 30, 10]
-  n <- (`mod` 10000) <$> randomIO
-  putStr . unlines $
-    take 28 $
-      take 28 <$> iterate (drop 28) (render <$> getImage testI n)
-
-  let epochs = 9999
-      example = getX testI n
-      bs = foldl' (\b n -> learn (getX trainI n) (getY trainL n) b) initialModel [0 .. epochs]
-      smart = bs
-      cute d score = show d ++ ": " ++ replicate (round $ 70 * min 1 score) '+'
-      bestOf = fst . maximumBy (comparing snd) . zip [0 ..]
-
-  -- forM_ bs $ putStrLn . unlines . cute [0..9] . feedForward example
-
-  putStrLn $ "best guess: " ++ show (bestOf $ feedForward example smart)
-
-  let guesses = bestOf . (\n -> feedForward (getX testI n) smart) <$> [0 .. epochs]
-  let answers = getLabel testL <$> [0 .. epochs]
-  putStrLn $
-    show (sum $ fromEnum <$> zipWith (==) guesses answers)
-      ++ " / 10000"
 
 train :: [[Float]] -> [[Float]] -> [[Float]] -> [[Float]] -> IO ()
 train trainI trainL testI testL = do
