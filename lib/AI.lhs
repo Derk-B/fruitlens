@@ -157,6 +157,21 @@ newModel = do
 
   return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
 
+-- Model without convolutional layers
+--newModel :: IO NeuralNetwork
+--newModel = do
+  -- Fully connected layer 1: 30000 -> 100
+--  fc1Biases  <- replicateM 100 (gauss 0.01)
+--  fc1Weights <- replicateM 100 (replicateM 30000 (gauss 0.01))
+--  let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
+
+  -- Fully connected layer 2: 100 -> 2 (one for each fruit type)
+--  fc2Biases  <- replicateM 2 (gauss 0.01)
+--  fc2Weights <- replicateM 2 (replicateM 100 (gauss 0.01))
+--  let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
+
+--  return [fcLayer1, fcLayer2]
+
 forwardPass :: Image -> NeuralNetwork -> ([Float], [Image])
 forwardPass inputImage network =
   let (outputs, images) = foldl propagateLayer ([], [inputImage]) network
@@ -176,26 +191,28 @@ forwardPass inputImage network =
               layerOutput = calculateFullyConnectedLayerOutput flatInput fcLayer
           in (softmax layerOutput : outputs, images)
 
-backpropFullyConnected :: Float -> [Float] -> [Float] -> [Float] -> ((Biases, Weights), [Float])
-backpropFullyConnected learningRate inputs target layerOutput =
-  let errorDerivative = crossEntropyDerivative layerOutput target
-
+backpropFullyConnected :: Float -> [Float] -> [Float] -> (Biases, Weights) -> ((Biases, Weights), [Float])
+backpropFullyConnected learningrate inputs propagatedError (biases, weights) =
+  let layerOutput = calculateFullyConnectedLayerOutput inputs (biases, weights)
+      -- Compute the derivative of the activation function (ReLU).
       activationDerivatives = map reLuDerivative layerOutput
-
-      delta = zipWith (*) errorDerivative activationDerivatives
-
-      biasUpdates = map (learningRate *) delta
-
-      weightUpdates = [map ((learningRate *) . (x *)) delta | x <- inputs]
-
-      propagatedError = [sum $ zipWith (*) delta row | row <- transpose weightUpdates]
-  in ((biasUpdates, weightUpdates), propagatedError)
+      -- Compute the delta for this layer by elementwise multiplying the propagated error
+      -- with the derivative.
+      delta = zipWith (*) propagatedError activationDerivatives
+      -- Compute gradients for biases and weights.
+      biasGradients = map (learningrate *) delta
+      weightGradients = [[learningrate * x * d | d <- delta] | x <- inputs]
+      -- Update parameters by subtracting the gradients.
+      newBiases = zipWith (-) biases biasGradients
+      newWeights = zipWith (zipWith (-)) weights weightGradients
+      -- Propagate error to the previous layer using the original weights.
+      newPropagatedError = [sum $ zipWith (*) delta col | col <- transpose weights]
+  in ((newBiases, newWeights), newPropagatedError)
 
 trainIteration :: NeuralNetwork -> (Image, [Float]) -> Float -> IO NeuralNetwork
 trainIteration model (inputImage, targetOutput) learningRate = do
   let (outputs, intermediateImages) = forwardPass inputImage model
-  let initialError = crossEntropyDerivative outputs targetOutput
-
+      initialError = crossEntropyDerivative outputs targetOutput
   (updatedModel, _) <- foldM (backpropagateLayer learningRate) (model, initialError) (zip (reverse model) (reverse intermediateImages))
   return updatedModel
   where
@@ -203,10 +220,9 @@ trainIteration model (inputImage, targetOutput) learningRate = do
     backpropagateLayer lr (currentModel, errorToPropagate) (layer, layerInput) =
       case layer of
         FullyConnected fcLayer -> do
-          let ((biasUpdates, weightUpdates), newErrorToPropagate) = backpropFullyConnected lr (flattenImage layerInput) targetOutput (calculateFullyConnectedLayerOutput (flattenImage layerInput) fcLayer)
-          let updatedLayer = FullyConnected (biasUpdates, weightUpdates)
-          return (replaceLayer currentModel layer updatedLayer, newErrorToPropagate)
-
+          let flatInput = flattenImage layerInput
+              (updatedFC, newError) = backpropFullyConnected lr flatInput errorToPropagate fcLayer
+          return (replaceLayer currentModel layer (FullyConnected updatedFC), newError)
         _ -> return (currentModel, errorToPropagate)
 
 replaceLayer :: NeuralNetwork -> Layer -> Layer -> NeuralNetwork
