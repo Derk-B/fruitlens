@@ -18,7 +18,7 @@ import qualified Data.ByteString.Lazy as BL
 import System.Directory (doesFileExist)
 
 -- Fruit types that can be recognized by the neural network
-data FruitType = Apple | Banana | Pear
+data FruitType = Apple | Banana
   deriving (Show, Eq, Enum, Bounded)
 
 type Biases = [Float]
@@ -151,8 +151,8 @@ newModel = do
   let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
 
   -- Fully connected layer 2: 100 -> 5 (one for each fruit type)
-  fc2Biases  <- replicateM 5 (gauss 0.01)
-  fc2Weights <- replicateM 5 (replicateM 100 (gauss 0.01))
+  fc2Biases  <- replicateM 2 (gauss 0.01)
+  fc2Weights <- replicateM 2 (replicateM 100 (gauss 0.01))
   let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
 
   return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
@@ -228,9 +228,9 @@ evaluateModel trainedModel testData = do
     let testResults = map (\(img, label) ->
             let prediction = predictFruit trainedModel img
                 expectedFruit = case label of
-                    [1.0, 0.0, 0.0] -> Apple
-                    [0.0, 1.0, 0.0] -> Banana
-                    [0.0, 0.0, 1.0] -> Pear
+                    [1.0, 0.0] -> Apple
+                    [0.0, 1.0] -> Banana
+                 --   [0.0, 0.0, 1.0] -> Pear
                     _ -> error "Invalid label"
             in prediction == expectedFruit
             ) testData

@@ -6,7 +6,7 @@
 
 module Convert where
 
-import AI (train)
+import AI (trainModel, Image, newModel, predictFruit)
 import Codec.Picture
 import Codec.Picture.Types
 import qualified Data.Bifunctor
@@ -71,15 +71,25 @@ getImagesAndLabels path = do
 
   return seperateBytesAndLabels
 
+convertImageForAi :: [Float] -> [[[Float]]]
+convertImageForAi xs = chunksOf 100 (chunksOf 3 xs)
+
 convert :: IO ()
 convert = do
   (trainI, trainL) <- getImagesAndLabels "Training/"
-  (testI, testL) <- getImagesAndLabels "Test/"
-  let partial :: [a] -> [a]
-      partial l = take 10 l ++ take 10 (drop 1500 l) ++ take 10 (drop 2300 l) ++ drop (length l - 10) l
-  print (length trainL, length (partial trainL))
-  --train (partial trainI) (partial trainL) testI testL
-  train trainI trainL testI testL
-  return ()
+  (_testI, _testL) <- getImagesAndLabels "Test/"
+
+  let trainingData :: [(AI.Image, [Float])]
+      trainingData = zip (map convertImageForAi trainI) trainL
+
+  initialModel <- newModel
+
+  finalModel <- trainModel initialModel trainingData 10 0.01
+  putStrLn "Training complete."
+
+  let firstImage = convertImageForAi (head trainI)
+      prediction = predictFruit finalModel firstImage
+  putStrLn $ "Prediction for first image: " ++ show prediction
+
 
 \end{code}
