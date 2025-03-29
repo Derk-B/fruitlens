@@ -90,10 +90,6 @@ convert = do
   finalModel <- trainModel initialModel  trainingData 10 0.01
   putStrLn "Training complete."
 
-  let firstImage = convertImageForAi (head trainI)
-      prediction = predictFruit finalModel firstImage
-  putStrLn $ "Prediction for first image: " ++ show prediction
-
   evaluateModel finalModel  testData
 
 

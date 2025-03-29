@@ -127,6 +127,8 @@ feedForwardFullyConnected =
 randomKernel :: Int -> Int -> IO Kernel
 randomKernel i j = replicateM i (replicateM j (gauss 0.001))
 
+
+-- WIP with CNN
 newModel :: IO NeuralNetwork
 newModel = do
   -- First convolutional layer: 8 kernels (3×3)
@@ -150,7 +152,7 @@ newModel = do
   fc1Weights <- replicateM 100 (replicateM 8464 (gauss 0.01))
   let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
 
-  -- Fully connected layer 2: 100 -> 5 (one for each fruit type)
+  -- Fully connected layer 2: 100 -> 2 (one for each fruit type)
   fc2Biases  <- replicateM 2 (gauss 0.01)
   fc2Weights <- replicateM 2 (replicateM 100 (gauss 0.01))
   let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
@@ -180,16 +182,9 @@ forwardPass inputImage network =
   where
     propagateLayer (outputs, images@(prevImage:_)) layer =
       case layer of
-        ConvLayer convLayer ->
-          let newImage = applyConvLayer prevImage convLayer
-          in (outputs, newImage : images)
-        MaxPoolingLayer poolSize ->
-          let newImage = applyMaxPoolingLayer prevImage poolSize
-          in (outputs, newImage : images)
-        FullyConnected fcLayer ->
-          let flatInput = flattenImage prevImage
-              layerOutput = calculateFullyConnectedLayerOutput flatInput fcLayer
-          in (softmax layerOutput : outputs, images)
+        ConvLayer convLayer -> (outputs, applyConvLayer prevImage convLayer : images)
+        MaxPoolingLayer poolSize -> (outputs, applyMaxPoolingLayer prevImage poolSize : images)
+        FullyConnected fcLayer -> (softmax (calculateFullyConnectedLayerOutput (flattenImage prevImage) fcLayer) : outputs, images)
 
 backpropFullyConnected :: Float -> [Float] -> [Float] -> (Biases, Weights) -> ((Biases, Weights), [Float])
 backpropFullyConnected learningrate inputs propagatedError (biases, weights) =
