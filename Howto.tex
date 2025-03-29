@@ -1,12 +1,26 @@
 \section{How to use this?}
 
 You should have stack installed (see \url{https://haskellstack.org/}) and open a terminal in the same folder.
+To make it easy to use the model we have created a web interface. It is recommended to have python and the http library installed to serve the web interface.
 
 \begin{itemize}
-  \item Download all the files from https://github.com/golbin/TensorFlow-MNIST/tree/master/mnist/data. Put these files in the root of the project. There is no need to decompress the files, our project will do that for you.
-  \item To compile and run the server: \verb|stack run|.
-  \item The server should then run on localhost:8080.
-  \item You can send an image to localhost:8080/api/fruitlens as a base64 encoded string, we recommend using something like Postman.
-  \item To run the training algorithm, run \verb|stack ghci| and load the NeuralNetwork.hs file. Then call the main function.
-  \item The app is not finished so it is not available yet.
+  \item Download all the files from the fruits-360\_100x100 directory from\\ https://www.kaggle.com/datasets/moltean/fruits. Put these files in the root of the project.
+  \item You can now go two ways from here: train the model or use the model to predict the fruit in a new image.
+  \item 1. Run the training algorithm
+  \begin{itemize}
+      \item Run \verb|stack ghci| 
+      \item Load the Convert.ihs file. Run \verb|:l lib/Convert.ihs|. 
+      \item Call the convert function. Run \verb|convert|.
+      \item After some time (can take half an hour depending on your hardware), a trained\_model.bin file should be saved in the root of your project. That binary contains the model values that you can use to predict fruits.
+  \end{itemize}
+
+  \item 2. Run the API and use that as an interface to detect fruits.
+  \begin{itemize}
+    \item Run \verb |stack ghci|
+    \item Load the API.ihs file. Run \verb|:l lib/API.ihs|.
+    \item Start the server with: \verb|startServer 8080|
+    \item Now you should be able to send a base64 encoded value of a JPG to localhost:8080/api/fruitlens. However it is easier to use the web interface that we made.
+    \item Start teh web interface by going into the fruitcam-web directory. Run \verb|cd fruitcam-web|. The easiest way to run the website is by using python. Run \verb|python3 -m http.server 3000|.
+    \item Visit localhost:3000 in your browser and upload a jpg file.
+  \end{itemize}
 \end{itemize}
