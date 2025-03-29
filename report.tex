@@ -173,9 +173,9 @@ The output of the model should be a 1D array of floats. Each float value represe
 \subsection{Server Side}
 The most important part of this project is running on the server side. This includes the neural network training algorithm and the REST API that allows the user to easily use the fruit prediction software.
 
-\subsection{Client Side (Android App)}
+\subsection{Client Side (Web App)}
 The user can manually convert a JPEG image to a base64 encoded value and send that to the API.
-To streamline the process of image submission, we have developed an Android mobile app using Kotlin. This app allows users to capture pictures of fruits directly from their device. The app automatically converts the captured JPEG image into a base64-encoded string and sends it to the API. This makes this process more accessible and user-friendly.
+To streamline the process of image submission, we have developed a web app using vanillaJS and HTML. This app allows users to upload pictures of fruits directly from their device. The app automatically converts the captured JPEG image into a base64-encoded string and sends it to the API. This makes this process more accessible and user-friendly. It only supports JPG images.
 
 Once the image is sent to the API, it is processed by a neural network, which predicts the type of fruit in the image. The prediction is then sent back to the app. Finally, the app displays the predicted fruit label to the user.
 
