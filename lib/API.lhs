@@ -1,6 +1,6 @@
 \section{API Module}\label{sec:API}
 
-This section is about the API module, which we implemented to improve ease of use and make it possible to send requests for our application. We used the Scotty library to create a webserver that listens to the given port number
+This section is about the API module, which we implemented to improve ease of use and make it possible to send requests from the webpage and the app. We used the Scotty library to create a webserver that listens to the given port number
 
 \hide{
 \begin{code}
@@ -54,7 +54,7 @@ startServer port = do
 
 \end{code}
 
-The \texttt{predictImage} functipon takes the jsonData, packs it and tries to decode it from Base64 to ByteString. If an error occurs, an error is simply returned by the API. Then, the function tries to decode the image to a \texttt{dynamicImage} from the \texttt{JuicyPixels} library, if that throws an error, the API, again, simply returns an error to the request. If the image can be decoded, the image is converted to an array of floats, which will be sent to the neural network to predict the fruit with. Lastly, the API returns the prediction to the requester. 
+The \texttt{predictImage} function takes the jsonData, packs it and tries to decode it from Base64 to ByteString. If an error occurs, the error is simply returned in JSON by the API. Then, the function tries to decode the image to a \texttt{dynamicImage} from the \texttt{JuicyPixels} library, if that throws an error, the API, again, simply returns an error to the request. If the image can be decoded, the image is converted to an array of floats, which will be sent to the neural network to predict the fruit with. Lastly, the API returns the prediction to the requester. 
 
 \begin{code}
 -- | Predict the fruit type from an image using the neural network
@@ -86,7 +86,7 @@ predictImage model = do
               ]
 \end{code}
 
-The \texttt{convertImage} function takes a DynamicImage and converts it to a 100x100 3D list of Floats. Each element in the list is a pixel represented as a list of three floats, one for each RGB value, normalized to values between 0 and 1.
+The \texttt{convertImage} function takes a DynamicImage and converts it to a list of 30.000 Floats (100x100 pixels, 3 RGB values per pixel). Each element in the list is a pixel represented as a list of three floats, one for each RGB value, normalized to values between 0 and 1. The convertRGB8 and scaleBilinear functions are from the \texttt{JuicyPixels-extra} library.
 
 \begin{code}
 convertImage :: DynamicImage -> [Float]
@@ -98,7 +98,7 @@ convertImage dynImage =
     in map (\x -> fromIntegral x / 255) rgbList
 \end{code}
 
-Lastly, a small function \texttt{toSquare} is defined to crop an image to a centered square of the original image.
+Lastly, a small function \texttt{toSquare} is defined to crop an image to a centered square of the original image. The crop funtion is from the  \texttt{JuicyPixels-extra} library.
 
 \begin{code}
 toSquare :: Image PixelRGB8 -> Image PixelRGB8
