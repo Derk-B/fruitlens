@@ -16,16 +16,13 @@ where
 import Codec.Picture
 import Codec.Picture.Extra (crop, scaleBilinear)
 import Data.Aeson
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as BC
-import Data.List.Split (chunksOf)
 import Data.Vector.Storable (toList)
 import AI (loadModel, feedForward, NeuralNetwork)
 import Data.List (maximumBy)
 import Data.Ord (comparing)
-import Web.Scotty (ActionM, get, html, json, jsonData, param, post, scotty)
+import Web.Scotty (ActionM, get, html, json, jsonData, post, scotty)
 \end{code}
 }
 
@@ -38,7 +35,7 @@ instance FromJSON MyImage where
   parseJSON = withObject "Image" $ \o -> MyImage <$> o .: "image"
 
 instance ToJSON MyImage where
-  toJSON (MyImage value) = object ["image" .= value]
+  toJSON (MyImage v) = object ["image" .= v]
 \end{code}
 
 Then \texttt{startServer} is defined, this function starts the web server on the specified port. The server listens for POST requests to \texttt{/api/fruitlens} and GET requests to the root path. The \texttt{predictImage} function is called when a POST request is made to \texttt{/api/fruitlens}.
@@ -60,8 +57,8 @@ The \texttt{predictImage} function takes the jsonData, packs it and tries to dec
 -- | Predict the fruit type from an image using the neural network
 predictImage :: NeuralNetwork -> ActionM ()
 predictImage model = do
-  (MyImage value) <- jsonData
-  let decoded = B64.decode (BC.pack value)
+  (MyImage v) <- jsonData
+  let decoded = B64.decode (BC.pack v)
   case decoded of
     Left err -> Web.Scotty.json $ object ["error" .= ("Invalid Base64: " ++ err)]
     Right byteArray -> do

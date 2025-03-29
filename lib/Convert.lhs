@@ -8,11 +8,9 @@ module Convert where
 
 import AI (train)
 import Codec.Picture
-import Codec.Picture.Types
 import qualified Data.Bifunctor
 import qualified Data.Functor
-import Data.List.Split (chunksOf)
-import Data.Maybe (catMaybes, mapMaybe)
+import Data.Maybe (mapMaybe)
 import Data.Vector.Storable (toList)
 import GHC.Word (Word8)
 import System.Directory

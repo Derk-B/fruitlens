@@ -10,8 +10,6 @@ module Utils
   )
 where
 
-import Codec.Compression.GZip (decompress)
-import qualified Data.ByteString.Lazy as BL
 import System.Random
 
 -- | Generate a random number from a Gaussian distribution
