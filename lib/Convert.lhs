@@ -71,8 +71,8 @@ getImagesAndLabels path = do
 
   return seperateBytesAndLabels
 
-convertImageForAi :: [Float] -> [[[Float]]]
-convertImageForAi xs = chunksOf 100 (chunksOf 3 xs)
+convertImageForCNN :: [Float] -> [[[Float]]]
+convertImageForCNN xs = chunksOf 100 (chunksOf 3 xs)
 
 convert :: IO ()
 convert = do
@@ -80,10 +80,10 @@ convert = do
   (testI, testL) <- getImagesAndLabels "Test/"
 
   let trainingData :: [(AI.Image, [Float])]
-      trainingData = zip (map convertImageForAi trainI) trainL
+      trainingData = zip (map convertImageForCNN trainI) trainL
 
   let testData :: [(AI.Image, [Float])]
-      testData = zip (map convertImageForAi testI) testL
+      testData = zip (map convertImageForCNN testI) testL
 
   initialModel <- newModel
 
