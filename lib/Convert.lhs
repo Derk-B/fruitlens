@@ -73,10 +73,6 @@ convert :: IO ()
 convert = do
   (trainI, trainL) <- getImagesAndLabels "Training/"
   (testI, testL) <- getImagesAndLabels "Test/"
-  let partial :: [a] -> [a]
-      partial l = take 10 l ++ take 10 (drop 1500 l) ++ take 10 (drop 2300 l) ++ drop (length l - 10) l
-  print (length trainL, length (partial trainL))
-  --train (partial trainI) (partial trainL) testI testL
   train trainI trainL testI testL
   return ()
 
