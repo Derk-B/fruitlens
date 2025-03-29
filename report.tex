@@ -28,7 +28,7 @@ This report outlines a group project as part of the Functional Programming cours
 \subsection{Dataset}
 In this project, a fruit dataset, named Fruits-360 \cite{oltean_fruits-360_2017}, is used for training and testing the neural network. 
 
-The dataset contains images of 5 main classes of fruits (Apple, Banana, Orange, Strawberry, and Grape) , with each image in the format of $100 \times 100 \times 3$ (width, height, and channels).
+The dataset contains images of multiple types of fruits (Apple, Banana, and others), with each image in the format of $100 \times 100 \times 3$ (width, height, and channels). We selected apples and bananas from the dataset and used those images in the training of the network.
 
 % \input{lib/CNN.lhs}
 
@@ -165,8 +165,6 @@ The output of the model should be a 1D array of floats. Each float value represe
 % \input{lib/Train.lhs}
 
 % Terminal output during training here
-
-\section{Implementing RESTful API}
 
 \input{lib/API.lhs}
 
