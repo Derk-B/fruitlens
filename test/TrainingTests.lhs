@@ -42,7 +42,7 @@ module Main where
 
 import FruitLens
 
-import Test.Hspec ( hspec, describe, it, shouldReturn )
+import Test.Hspec (hspec, describe, it, shouldReturn)
 import Test.QuickCheck
 import Control.Monad (replicateM)
 \end{code}
@@ -60,13 +60,8 @@ genPixel = replicateM 3 genNormalizedFloat
 
 -- Generate a random 100x100 image with RGB channels
 genImage :: Gen [[[Float]]]
-genImage = do
-  -- Generate 100 rows
-  rows <- replicateM 100 $ do
-    -- Each row has 100 pixels
-    replicateM 100 genPixel
-
-  return rows
+-- Generate 100 rows, each row has 100 pixels
+genImage = do replicateM 100 $ do replicateM 100 genPixel
 
 -- Generate a random fruit label (one-hot encoded)
 genFruitLabel :: Gen [Float]
