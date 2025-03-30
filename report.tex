@@ -26,7 +26,7 @@ This report outlines a group project as part of the Functional Programming cours
 \section{Implementing Neural Network}
 
 \subsection{Dataset}
-In this project, a fruit dataset, named Fruits-360 \cite{oltean_fruits-360_2017}, is used for training and testing the neural network. 
+In this project, a fruit dataset, named Fruits-360 \cite{oltean_fruits-360_2017}, is used for training and testing the neural network.
 
 The dataset contains images of 5 main classes of fruits (Apple, Banana, Orange, Strawberry, and Grape) , with each image in the format of $100 \times 100 \times 3$ (width, height, and channels).
 
@@ -58,7 +58,7 @@ This function:
     \item The middle list represents pixels in each row
     \item The innermost list represents the RGB values of each pixel
   \end{itemize}
-  
+
   \item Calculates six features from the image:
   \begin{itemize}
     \item Average red value (\texttt{avgR})
@@ -68,7 +68,7 @@ This function:
     \item Variance of green values (\texttt{varG})
     \item Variance of blue values (\texttt{varB})
   \end{itemize}
-  
+
   \item Returns these features as a single list \texttt{[avgR, avgG, avgB, varR, varG, varB]}
 \end{enumerate}
 
@@ -141,19 +141,19 @@ Let's decipher the code for hidden layer processing step by step:
 
 \begin{enumerate}
     \item \texttt{zipWith (*) inputs <\$> weights}
-    
+
     This applies the weight matrix to the input vector. The \texttt{<\$>} operator (which is \texttt{fmap}) applies the function \texttt{zipWith (*) inputs} to each row of the weight matrix, resulting in a list of weighted input sums for each neuron.
-    
+
     \item \texttt{sum . zipWith (*) inputs <\$> weights}
-    
+
     The \texttt{sum} function is composed with the previous operation, summing up all the weighted inputs for each neuron.
-    
+
     \item \texttt{zipWith (+) biases \$ sum . zipWith (*) inputs <\$> weights}
-    
+
     This adds the bias term to each neuron's weighted sum, completing the linear transformation part.
-    
+
     \item \texttt{map activation \$ zipWith (+) biases \$ sum . zipWith (*) inputs <\$> weights}
-    
+
     Finally, the activation function is applied to each neuron's value, introducing non-linearity.
 \end{enumerate}
 
@@ -165,6 +165,9 @@ The output of the model should be a 1D array of floats. Each float value represe
 % \input{lib/Train.lhs}
 
 % Terminal output during training here
+
+\subsection{CNN}
+\input{lib/AI.lhs}
 
 \section{Implementing RESTful API}
 
