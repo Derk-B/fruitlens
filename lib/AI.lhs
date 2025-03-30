@@ -19,7 +19,6 @@ import System.Directory (doesFileExist)
 \end{code}
 }
 
-
 \begin{figure}
   \centering
   \includegraphics[width=0.99\linewidth]{assets/conv.png}
@@ -168,7 +167,7 @@ randomKernel size sigma = map (map (/ total)) kernel
 newModelCNN :: IO NeuralNetwork
 newModelCNN = do
   -- First convolutional layer: 8 kernels (3×3)
-  let conv1Kernels = replicateM 8 (randomKernel 3 1.0)
+  let conv1Kernels = replicateM 8 (randomKernel 3 0.1)
   conv1Biases  <- replicateM 8 (gauss 0.01)
   let convLayer1 = ConvLayer (conv1Kernels, conv1Biases)
 
@@ -176,7 +175,7 @@ newModelCNN = do
   let poolLayer1 = MaxPoolingLayer 2
 
   -- Second convolutional layer: 16 3x3 kernels
-  let conv2Kernels = replicateM 16 (randomKernel 3 1.0)
+  let conv2Kernels = replicateM 16 (randomKernel 3 0.1)
   conv2Biases  <- replicateM 16 (gauss 0.01)
   let convLayer2 = ConvLayer (conv2Kernels, conv2Biases)
 
