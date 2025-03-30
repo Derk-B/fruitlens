@@ -1,16 +1,16 @@
 \section{How to use this?}
 
 You should have stack installed (see \url{https://haskellstack.org/}) and open a terminal in the same folder.
-To make it easy to use the model we have created a web interface. It is recommended to have python and the http library installed to serve the web interface.
+To make it easy to use the model, we have created a web interface. It is recommended to have python and the http library installed to serve the web interface.
 
 \begin{enumerate}
   \item Download all the files from the \texttt{fruits-360\_100x100} directory from \url{https://www.kaggle.com/datasets/moltean/fruits}. Put these files in the root of the project.
-  \item Run the training algorithm. You may run the training algorithm in two ways. 
+  \item Run the training algorithm. You may run the training algorithm in two ways: 
   \begin{enumerate}
       \item Run with GHCi
         \begin{itemize}
           \item Run \verb|stack ghci| 
-          \item Load the Convert.ihs file. Run \verb|:l lib/Convert.ihs|. 
+          \item Load the Convert.lhs file. Run \verb|:l lib/Convert.lhs|. 
           \item Call the convert function. Run \verb|convert|.
         \end{itemize}
       \item Build the binary and run with it
@@ -22,12 +22,12 @@ To make it easy to use the model we have created a web interface. It is recommen
   \item After some time (can take half an hour depending on your hardware), a \texttt{trained\_model.bin} file should be saved in the root of your project. That binary contains the model weights that you can use to predict fruits.
 
 
-  \item Run the API server and use that as an interface to detect fruits. You may also run the training algorithm in two ways. 
+  \item Run the API server and use that as an interface to detect fruits. You may also run the training algorithm in two ways: 
   \begin{enumerate}
       \item Run with GHCi
         \begin{itemize}
             \item Run \verb |stack ghci|
-            \item Load the API.ihs file. Run \verb|:l lib/API.ihs|.
+            \item Load the API.lhs file. Run \verb|:l lib/API.lhs|.
             \item Start the server with: \verb|startServer 8080|
         \end{itemize}
       \item Build the binary and run with it
