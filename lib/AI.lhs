@@ -77,10 +77,14 @@ reLuDerivative x | x > 0     = 1
 
 \end{code}
 
-The softMax function is used in the final layer fully connected layer of the model in order to turn the final layer's output into a probability distribution.
+The \verb|softMax| function is used in the final layer fully connected layer of the model in order to turn the final layer's output into a probability distribution.
 Very large negative values in the output layer get mapped to probability values around 0, values around 0 get mapped to 0.5 and very positive values get mapped to values around 1.
 The output of the softMax function will then be used by the argMax function to extract the final prediction. The index of the vector after the softMax function that has the highest value will be picked as the models prediction.
-$s(x_i) = \frac{e^{x_i}}{\sum{n}{j=1}{e^{x_j}}}$
+
+\begin{equation}
+s(x_i) = \frac{e^{x_i}}{\sum^{n}_{j=1}{e^{x_j}}}
+\end{equation}
+
 \begin{code}
 softmax :: [Float] -> [Float]
 softmax xs =
@@ -92,12 +96,14 @@ argmax :: [Float] -> Int
 argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
 
 \end{code}
-The crossEntropyLoss function computes the cross entropy loss between the predicted probabilities and the true target values, which are encoded as a one-hot vector where only the index corresponding to the correct fruit has a probability of 1.
+
+The \verb|crossEntropyLoss| function computes the cross entropy loss between the predicted probabilities and the true target values, which are encoded as a one-hot vector where only the index corresponding to the correct fruit has a probability of 1.
 This loss measures the difference between the predicted probability distribution and the actual fruit type.
 It penalizes predictions that deviate from the true targets by taking the negative log likelihood of the predicted probability for the correct class.
 By clamping the values between $10^{-15}$ and $1 - 10^{-15}$, the case of taking the log of 0 is avoided which would result in an undefined result.
 
-The crossEntropyDerivative function calculates the derivative of the loss with respect to the predicted values. This gradient is used during the backpropogation to update the model parameters and minimize the loss.
+The \verb|crossEntropyDerivative| function calculates the derivative of the loss with respect to the predicted values. This gradient is used during the backpropogation to update the model parameters and minimize the loss.
+
 \begin{code}
 crossEntropyLoss :: [Float] -> [Float] -> Float
 crossEntropyLoss predicted target = sum $ zipWith (\t p -> if t > 0 then -(t * log p) else 0) target (map (max 1e-15 . min (1 - 1e-15)) predicted)
@@ -106,7 +112,9 @@ crossEntropyDerivative :: [Float] -> [Float] -> [Float]
 crossEntropyDerivative = zipWith (-)
 
 \end{code}
-The convolve function convolves an input image with a convolution kernel. This way, information of neighbouring pixels can be taken into account as the result contains information about all the pixels inside of the convolution filter.
+
+The \verb|convolve| function convolves an input image with a convolution kernel. This way, information of neighbouring pixels can be taken into account as the result contains information about all the pixels inside of the convolution filter.
+
 \begin{code}
 convolve :: Image -> Kernel -> [[Float]]
 convolve img kernel =
@@ -123,8 +131,10 @@ convolve img kernel =
      | i <- [0 .. iRows - kRows]]
 
 \end{code}
-The combineFeatureMaps reconstructs an image type after a convolution. It takes a list of 2D feature maps resulting from the convolution step, each corresponding to a convolution with a different kernel,
+
+The \verb|combineFeatureMaps| reconstructs an image type after a convolution. It takes a list of 2D feature maps resulting from the convolution step, each corresponding to a convolution with a different kernel,
 and combines them to form an Image type that can then be taken as input for the next layer.
+
 \begin{code}
 combineFeatureMaps :: [[[Float]]] -> Image
 combineFeatureMaps featureMaps =
@@ -135,7 +145,8 @@ combineFeatureMaps featureMaps =
        | i <- [0 .. h - 1]]
 
 \end{code}
-applyConvLayer applies a convolutional layer to an image. The image gets convolved with the
+
+\verb|applyConvLayer| applies a convolutional layer to an image. The image gets convolved with the
 convolutional kernels of the layer and the bias of the layer gets added to the
 result. The result gets reconstructed back to an Image type by the combineFeatureMaps
 function.
@@ -150,9 +161,10 @@ applyConvLayer img (kernels, biases) =
 
 \end{code}
 
-The applyMaxPoolingLayer applies a max pooling layer to the image to shrink the image down but keep as
+The \verb|applyMaxPoolingLayer| applies a max pooling layer to the image to shrink the image down but keep as
 much relevant information by keeping the maximum value of a pooling grid. The image gets shrunken down based on the poolsize.
 For a poolsize of 2, the image gets halved in size. So a 100x100 image will become a 50x50 image after the maxPooling layer.
+
 \begin{code}
 applyMaxPoolingLayer :: Image -> PoolSize -> Image
 applyMaxPoolingLayer img poolSize =
@@ -171,23 +183,25 @@ applyMaxPoolingLayer img poolSize =
 
 
 \end{code}
-The flattenImage function converts an Image, which is a 3D list of floats, into a 1D list of floats.
+
+The \verb|flattenImage| function converts an Image, which is a 3D list of floats, into a 1D list of floats.
 This is needed to connect the final maxPooling layer to the input layer of the fully connected network.
 \begin{code}
 flattenImage :: Image -> [Float]
 flattenImage = concatMap concat
 
 \end{code}
-calculateFullyConnectedLayerOutput gets the output of a fully connected layer by taking a list of input values,
+
+\verb|calculateFullyConnectedLayerOutput| gets the output of a fully connected layer by taking a list of input values,
 computing the weighted sum for each neuron by multiplying corresponding inputs
 and weights and summing them and add the neuron's bias, and then applying the
 ReLU activation function to the result. This gives a list of floats, one for each
 neuron in the layer.
+
 \begin{code}
 calculateFullyConnectedLayerOutput :: [Float] -> FullyConnectedLayer -> [Float]
 calculateFullyConnectedLayerOutput inputs (biases, weights) =
   map reLuactivation $ zipWith (+) biases $ map (sum . zipWith (*) inputs) weights
-
 \end{code}
 
 The fully connected feed forward works by processing the list of fully connected
@@ -205,7 +219,7 @@ feedForwardFullyConnected =
 
 \end{code}
 
-The feedForwardImage function forward feeds an image through the netire network.
+The \verb|feedForwardImage| function forward feeds an image through the netire network.
 The convolutional and max pooling
 layers are applied on the image until a fully connected layer is encountered,
 then the image is flattened and processed as a 1D list of floats to predict
@@ -223,7 +237,7 @@ feedForwardImage img (layer:layers) =
     FullyConnected _     -> feedForwardFullyConnected (flattenImage img) (layer:layers)
 \end{code}
 
-The randomKernel function creates new convolution kernels for the convolutional layers to use.
+The \verb|randomKernel| function creates new convolution kernels for the convolutional layers to use.
 Originaly, the kernels were initialized with completely random values, which could then be learned by also performing backwards propogation on the convolutional layers.
 This would allow the model to train kernels to pick up on specific features in the images. However, implementing the backwards propogation for the convolutional layers was not succesful.
 Now, the randomKernel function returns a gaussian convolutional kernel that is always initialized with the same distribution as to not introduce random noise into the input layer of the fully connected network,
@@ -287,7 +301,8 @@ newModelCNN = do
   return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
 
 \end{code}
-The newModelFC function returns a newly initialized, untrained fully connected neural network without any convolutional or maxPooling layers.
+
+The \verb|newModelFC| function returns a newly initialized, untrained fully connected neural network without any convolutional or maxPooling layers.
 \begin{code}
 -- Model without convolutional layers
 newModelFC :: IO NeuralNetwork
@@ -304,7 +319,8 @@ newModelFC = do
 
   return [fcLayer1, fcLayer2]
 \end{code}
-The forwardPass function propogates an Image through the network to get the predicted probabilities of the network.
+
+The \verb|forwardPass| function propogates an Image through the network to get the predicted probabilities of the network.
 It recursively calls the feedForwards function for the convolutional layers and the max pooling layers as those functions have the same paramters.
 For the fully connected layers, it calls the calculateFullyConnectedLayerOutput to get the final prediction of the fully connected layers.
 \begin{code}
@@ -338,7 +354,7 @@ backpropFullyConnected learningrate inputs propagatedError (biases, weights) =
   in ((newBiases, newWeights), newPropagatedError)
 \end{code}
 
-The replaceLayer function updates a layer of the network with its new weights and biases by replacing it with the layer that has the updated values after the backwards propogation.
+The \verb|replaceLayer| function updates a layer of the network with its new weights and biases by replacing it with the layer that has the updated values after the backwards propogation.
 \begin{code}
 replaceLayer :: NeuralNetwork -> Layer -> Layer -> NeuralNetwork
 replaceLayer [] _ _ = []
@@ -347,9 +363,10 @@ replaceLayer (l:ls) oldLayer newLayer
   | otherwise     = l : replaceLayer ls oldLayer newLayer
 \end{code}
 
-The trainIteration function performs a single training iteration.
+The \verb|trainIteration| function performs a single training iteration.
 First, the forwards pass is computed to get the prediction of the model on an input image.
 Then the error is calculated between the prediction and the actual type of fruit in the image. This error is then propogated through the network using the backpropagateLayer function to update the weights and biases of the fully connected layers.
+
 \begin{code}
 trainIteration :: NeuralNetwork -> (Image, [Float]) -> Float -> IO NeuralNetwork
 trainIteration model (inputImage, targetOutput) learningRate = do
@@ -368,7 +385,9 @@ trainIteration model (inputImage, targetOutput) learningRate = do
         _ -> return (currentModel, errorToPropagate)
 
 \end{code}
-the trainModel function trains the model for $n$ epochs by calling the trainIteration for every image in the training set.
+
+The \verb|trainModel| function trains the model for $n$ epochs by calling the trainIteration for every image in the training set.
+
 \begin{code}
 trainModel :: NeuralNetwork -> [(Image, [Float])] -> Int -> Float -> IO NeuralNetwork
 trainModel initialModel trainingData epochs learningRate = do
