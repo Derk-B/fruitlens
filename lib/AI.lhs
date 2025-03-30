@@ -1,8 +1,7 @@
-
-The code for the neural network was taken from https://crypto.stanford.edu/~blynn/haskell/brain.html.
-We adjusted it to make it compatible with learning types of fruits in images
+\hide {
 \begin{code}
 
+{-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
@@ -10,170 +9,399 @@ We adjusted it to make it compatible with learning types of fruits in images
 module AI where
 
 import Control.Monad
-import qualified Data.ByteString.Lazy as BS
-import Data.List (foldl', maximumBy, transpose)
+import Data.List (maximumBy, transpose)
 import Data.Ord
-import qualified GHC.Int
-import Utils (gauss)
-import Data.Binary (encode, decode)
+import Data.Binary (encode, decode, Binary)
+import GHC.Generics (Generic)
+import Utils (gauss, gaussian)
 import qualified Data.ByteString.Lazy as BL
-import System.Directory (doesFileExist)
+\end{code}
+}
 
--- | Type aliases for neural network components
+\begin{figure}
+  \centering
+  \includegraphics[width=0.99\linewidth]{assets/conv.png}
+  \caption{Example of a convolution being applied to an image.}
+\end{figure}
+
+Becasue the goal of this project is to recognise fruits in images, we can exploit
+the spatial structure of these images. As pixels are related to their neighbours,
+we can use convolutional filters to extract spatial information of a region in the
+input image. The resulting value will therefore encode information about the value of
+a given pixel, as well as its neighbouring pixels. This will make the model more robust against
+images that are shifted or rotated as compared to the images in the training set.
+\begin{code}
+-- FruitType lists the types of fruit that can be recognised by the model.
+data FruitType = Apple | Banana
+  deriving (Show, Eq, Enum, Bounded)
+\end{code}
+
+In order to make the code of the neural network more readable and generic, types are defined
+that define the properties of the neural network. A neural network consists of a
+lists of layers, where every layer can be an instance of the following layer types:
+\begin{itemize}
+  \item \textbf{FullyConnectedLayer:} A fully connected layer consists of biases and weights. These layers are used for the classifying of the fruits in the input images.
+  \item \textbf{ConvolutionalLayer:} Performs feature extraction by convolving the input image.
+  \item \textbf{MaxPoolingLayer:} Shrinks the output of a convolutional layer down by keeping only the maximum values of a grid with the size of PoolSize.
+\end{itemize}
+Furthermore, kernels are defined as 2D lists of floats which make up the convolution kernels. Images are defined as a 3D list of floats, as every pixel contains data for the red, green and blue channel.
+\begin{code}
 type Biases = [Float]
-
+type PoolSize = Int
 type Weights = [[Float]]
+type Kernel = [[Float]]
+type Image = [[[Float]]]
+data Layer = ConvLayer ConvolutionalLayer
+           | MaxPoolingLayer PoolSize
+           | FullyConnected FullyConnectedLayer
+           deriving (Eq, Generic)
 
-type Layer = (Biases, Weights)
-
+-- Define the Binary instance for the Layer in for it to be serialized.
+instance Binary Layer
+type FullyConnectedLayer = (Biases, Weights)
+type ConvolutionalLayer = ([Kernel], Biases)
 type NeuralNetwork = [Layer]
 
--- | Create a new neural network model with the given layer sizes
--- The first element is the number of inputs, and the last element
--- is the number of outputs. Elements in between are hidden layer sizes.
-newModel :: [Int] -> IO NeuralNetwork
-newModel [] = error "newModel: cannot initialize layers with [] as input"
-newModel layers@(_ : outputLayers) = do
-  let biases = map (`replicate` 1) outputLayers
-  weights <- zipWithM (\m n -> replicateM n $ replicateM m (gauss 0.01)) layers outputLayers
-  return (zip biases weights)
+\end{code}
+The activation functions add non-linearity to the model. Without the activation function, the model could only learn linear relationships.
+ReLu is used as it is computationaly efficient, it simply outputs the input value if it is greater than 0, and 0 otherwise.
+The derivative of the activation function is needed during the backpropogation step of the model.
+\begin{code}
+reLuactivation :: Float -> Float
+reLuactivation x | x > 0     = x
+                 | otherwise = 0
 
-newBrain :: [Int] -> IO NeuralNetwork
-newBrain szs@(_ : ts) =
-  zip (flip replicate 1 <$> ts)
-    <$> zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) szs ts
+reLuDerivative :: Float -> Float
+reLuDerivative x | x > 0     = 1
+                 | otherwise = 0
 
-relu :: Float -> Float
-relu = max 0
+\end{code}
 
-relu' :: (Ord a1, Num a1, Num a2) => a1 -> a2
-relu' x
-  | x < 0 = 0
-  | otherwise = 1
+The softMax function is used in the final layer fully connected layer of the model in order to turn the final layer's output into a probability distribution.
+Very large negative values in the output layer get mapped to probability values around 0, values around 0 get mapped to 0.5 and very positive values get mapped to values around 1.
+The output of the softMax function will then be used by the argMax function to extract the final prediction. The index of the vector after the softMax function that has the highest value will be picked as the models prediction.
+$s(x_i) = \frac{e^{x_i}}{\sum{n}{j=1}{e^{x_j}}}$
+\begin{code}
+softmax :: [Float] -> [Float]
+softmax xs =
+  let expXs = map exp xs
+      sumExpXs = sum expXs
+  in map (/ sumExpXs) expXs
 
-calculateLayerOutput :: [Float] -> Layer -> [Float]
-calculateLayerOutput layerInput (biases, weights) = zipWith (+) biases $ sum . zipWith (*) layerInput <$> weights
+argmax :: [Float] -> Int
+argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
 
-feedForward :: [Float] -> [([Float], [[Float]])] -> [Float]
-feedForward = foldl' (((relu <$>) .) . calculateLayerOutput)
+\end{code}
+The crossEntropyLoss function computes the cross entropy loss between the predicted probabilities and the true target values, which are encoded as a one-hot vector where only the index corresponding to the correct fruit has a probability of 1.
+This loss measures the difference between the predicted probability distribution and the actual fruit type.
+It penalizes predictions that deviate from the true targets by taking the negative log likelihood of the predicted probability for the correct class.
+By clamping the values between $10^{-15}$ and $1 - 10^{-15}$, the case of taking the log of 0 is avoided which would result in an undefined result.
 
--- Returns a the activations and weighted inputs.
--- So in a layer we have a list of input values, we apply the weights to the inputs values and call it 'layerOutput'.
--- Then we apply the activation function (relu) to the 'layerOutput' and call it 'activatedOutput'
--- Then we return (activatedOutputs, layerOutputs)
-getActivatedAndWeightedOutputs :: [Float] -> NeuralNetwork -> ([[Float]], [[Float]])
-getActivatedAndWeightedOutputs initialInputs =
-  foldl'
-    ( \(inputs@(nodeInput : _), prevOutputs) layer ->
-        let layerOutput = calculateLayerOutput nodeInput layer
-         in ((relu <$> layerOutput) : inputs, layerOutput : prevOutputs)
-    )
-    ([initialInputs], [])
+The crossEntropyDerivative function calculates the derivative of the loss with respect to the predicted values. This gradient is used during the backpropogation to update the model parameters and minimize the loss.
+\begin{code}
+crossEntropyLoss :: [Float] -> [Float] -> Float
+crossEntropyLoss predicted target = sum $ zipWith (\t p -> if t > 0 then -(t * log p) else 0) target (map (max 1e-15 . min (1 - 1e-15)) predicted)
 
-dCost :: (Num a, Ord a) => a -> a -> a
-dCost a y
-  | y == 1 && a >= y = 0
-  | otherwise = a - y
+crossEntropyDerivative :: [Float] -> [Float] -> [Float]
+crossEntropyDerivative = zipWith (-)
 
-deltas :: [Float] -> [Float] -> [([Float], [[Float]])] -> ([[Float]], [[Float]])
-deltas initialInputs targets layers =
-  let (activatedOutputs@(activatedValue : _), weightedOutput : wos) = getActivatedAndWeightedOutputs initialInputs layers
-      -- Delta0 is the delta for the output layer.
-      -- Backpropagation works in reverse, so that is why we first calculate the output layer delta.
-      delta0 = zipWith (*) (zipWith dCost activatedValue targets) (relu' <$> weightedOutput)
-   in (reverse activatedOutputs, f (transpose . snd <$> reverse layers) wos [delta0])
+\end{code}
+The convolve function convolves an input image with a convolution kernel. This way, information of neighbouring pixels can be taken into account as the result contains information about all the pixels inside of the convolution filter.
+\begin{code}
+convolve :: Image -> Kernel -> [[Float]]
+convolve img kernel =
+  let kRows      = length kernel
+      kCols      = length (head kernel)
+      iRows      = length img
+      iCols      = length (head img)
+      numChannels = length (head (head img))
+  in [[sum [sum [(kernel !! ki !! kj) * (img !! (i + ki) !! (j + kj) !! c)
+                   | c <- [0 .. numChannels - 1]]
+           | ki <- [0 .. kRows - 1]
+           , kj <- [0 .. kCols - 1]]
+       | j <- [0 .. iCols - kCols]]
+     | i <- [0 .. iRows - kRows]]
+
+\end{code}
+The combineFeatureMaps reconstructs an image type after a convolution. It takes a list of 2D feature maps resulting from the convolution step, each corresponding to a convolution with a different kernel,
+and combines them to form an Image type that can then be taken as input for the next layer.
+\begin{code}
+combineFeatureMaps :: [[[Float]]] -> Image
+combineFeatureMaps featureMaps =
+  let h = length (head featureMaps)
+      w = length (head (head featureMaps))
+  in [[[fm !! i !! j | fm <- featureMaps]
+       | j <- [0 .. w - 1]]
+       | i <- [0 .. h - 1]]
+
+\end{code}
+applyConvLayer applies a convolutional layer to an image. The image gets convolved with the
+convolutional kernels of the layer and the bias of the layer gets added to the
+result. The result gets reconstructed back to an Image type by the combineFeatureMaps
+function.
+\begin{code}
+applyConvLayer :: Image -> ConvolutionalLayer -> Image
+applyConvLayer img (kernels, biases) =
+  let featureMaps = zipWith (\kernel bias ->
+                        let convMap = convolve img kernel
+                        in map (map (\x -> reLuactivation (x + bias))) convMap
+                      ) kernels biases
+  in combineFeatureMaps featureMaps
+
+\end{code}
+
+The applyMaxPoolingLayer applies a max pooling layer to the image to shrink the image down but keep as
+much relevant information by keeping the maximum value of a pooling grid. The image gets shrunken down based on the poolsize.
+For a poolsize of 2, the image gets halved in size. So a 100x100 image will become a 50x50 image after the maxPooling layer.
+\begin{code}
+applyMaxPoolingLayer :: Image -> PoolSize -> Image
+applyMaxPoolingLayer img poolSize =
+  let height   = length img
+      width    = length (head img)
+      channels = length (head (head img))
+      pooledH  = height `div` poolSize
+      pooledW  = width `div` poolSize
+      maxPool i j = [maximum[img !! (i + di) !! (j + dj) !! c
+                              | di <- [0 .. poolSize - 1]
+                              , dj <- [0 .. poolSize - 1]]
+                    | c <- [0 .. channels - 1]]
+  in [[maxPool (i * poolSize) (j * poolSize)
+       | j <- [0 .. pooledW - 1]]
+       | i <- [0 .. pooledH - 1]]
+
+
+\end{code}
+The flattenImage function converts an Image, which is a 3D list of floats, into a 1D list of floats.
+This is needed to connect the final maxPooling layer to the input layer of the fully connected network.
+\begin{code}
+flattenImage :: Image -> [Float]
+flattenImage = concatMap concat
+
+\end{code}
+calculateFullyConnectedLayerOutput gets the output of a fully connected layer by taking a list of input values,
+computing the weighted sum for each neuron by multiplying corresponding inputs
+and weights and summing them and add the neuron's bias, and then applying the
+ReLU activation function to the result. This gives a list of floats, one for each
+neuron in the layer.
+\begin{code}
+calculateFullyConnectedLayerOutput :: [Float] -> FullyConnectedLayer -> [Float]
+calculateFullyConnectedLayerOutput inputs (biases, weights) =
+  map reLuactivation $ zipWith (+) biases $ map (sum . zipWith (*) inputs) weights
+
+\end{code}
+
+The fully connected feed forward works by processing the list of fully connected
+layers using a foldl.
+For each fully connected layer, it computes the layer's output by using the calculateFullyConnectedLayerOutput function with the current activations.
+The resulting output then serves as the input for the next layer.
+\begin{code}
+feedForwardFullyConnected :: [Float] -> NeuralNetwork -> [Float]
+feedForwardFullyConnected =
+  foldl (\acc layer ->
+           case layer of
+             FullyConnected fc -> calculateFullyConnectedLayerOutput acc fc
+             _ -> error "feedForwardFullyConnected: Expected only fully connected layers."
+        )
+
+\end{code}
+The feedForwardImage function forward feeds an image through the netire network.
+The convolutional and max pooling
+layers are applied on the image until a fully connected layer is encountered,
+then the image is flattened and processed as a 1D list of floats to predict
+the fruit. The result will be a list of size n_{fruits} and the index with the
+maximum value will be the fruit the model predicted is in the image.
+\begin{code}
+feedForwardImage :: Image -> NeuralNetwork -> [Float]
+feedForwardImage img (layer:layers) =
+  case layer of
+    ConvLayer conv       -> feedForwardImage (applyConvLayer img conv) layers
+    MaxPoolingLayer size -> feedForwardImage (applyMaxPoolingLayer img size) layers
+    -- Fully connected layer does not reconstruct an Image type for recursion
+    -- but returns the final [Float] after computing all the fc layers using a foldl.
+    FullyConnected _     -> feedForwardFullyConnected (flattenImage img) (layer:layers)
+\end{code}
+
+The randomKernel function creates new convolution kernels for the convolutional layers to use.
+Originaly, the kernels were initialized with completely random values, which could then be learned by also performing backwards propogation on the convolutional layers.
+This would allow the model to train kernels to pick up on specific features in the images. However, implementing the backwards propogation for the convolutional layers was not succesful.
+Now, the randomKernel function returns a gaussian convolutional kernel that is always initialized with the same distribution as to not introduce random noise into the input layer of the fully connected network,
+However, this does introduce "blurring" of the input data. The CNN will therefore not perform nearly as well as a CNN that also trains its convolutional layers.
+\begin{code}
+-- randomKernel :: Int -> Int -> IO Kernel
+-- randomKernel i j = replicateM i (replicateM j (gauss 0.001))
+-- https://staff.fnwi.uva.nl/r.vandenboomgaard/ComputerVision/LectureNotes/IP/LocalStructure/GaussianDerivatives.html
+randomKernel :: Int -> Float -> Kernel
+randomKernel size sigma = map (map (/ total)) kernel
   where
-    f _ [] dvs = dvs
-    f (wm : wms) (zv : zvs) dvs@(dv : _) =
-      f wms zvs $
-        (: dvs) $
-          zipWith (*) [sum $ zipWith (*) row dv | row <- wm] (relu' <$> zv)
+    center = fromIntegral (size `div` 2)
+    kernel = [[gaussian (fromIntegral i - center) (fromIntegral j - center) sigma
+                 | j <- [0 .. size - 1]]
+               | i <- [0 .. size - 1]]
+    total = sum (map sum kernel)
 
-learningRate :: Float
-learningRate = 0.002
+\end{code}
 
-descend :: [Float] -> [Float] -> [Float]
-descend av dv = zipWith (-) av ((learningRate *) <$> dv)
+\begin{figure}
+  \centering
+  \includegraphics[width=0.99\linewidth]{assets/cnn.jpg}
+  \caption{Example of the architecture of a Convolutional Neural Network.}
+  \label{fig:cnn}
+\end{figure}
 
-learn :: [Float] -> [Float] -> [([Float], [[Float]])] -> [([Float], [[Float]])]
-learn inputs targets layers =
-  let (avs, dvs) = deltas inputs targets layers
-   in zip (zipWith descend (fst <$> layers) dvs) $
-        zipWith3
-          (\wvs av dv -> zipWith (\wv d -> descend wv ((d *) <$> av)) wvs dv)
-          (snd <$> layers)
-          avs
-          dvs
+The newModelCNN function returns a newly initialized, untrained CNN. \ref{fig:cnn} shows a visual example of the architecture of this network.
+The features of the image are extracted in the convolutional and maxPooling layers, and the classification takes place in the fully connected layers.
+This network also consits of two convolutional layers with maxPooling layers in between. The output of the last maxPooling layer is then flattened and will then be used as the input vector of the fully connected layers.
+This model consists of two fully connected layers, with the first going from 8464 input neurons to 100 output neurons, and the second layer goes from 100 input neurons to n_{fruittypes} output neurons, with one output neuron for each fruit type that the model can recognise.
+\begin{code}
+newModelCNN :: IO NeuralNetwork
+newModelCNN = do
+  -- First convolutional layer: 8 kernels (3×3)
+  let conv1Kernels = replicateM 8 (randomKernel 3 0.1)
+  conv1Biases  <- replicateM 8 (gauss 0.01)
+  let convLayer1 = ConvLayer (conv1Kernels, conv1Biases)
 
-getImage :: Num b => BL.ByteString -> GHC.Int.Int64 -> [b]
-getImage s n = fromIntegral . BS.index s . (n * 28 ^ 2 + 16 +) <$> [0 .. 28 ^ 2 - 1]
-getX :: Fractional b => BL.ByteString -> GHC.Int.Int64 -> [b]
+  -- First max pooling layer with pool size 2×2
+  let poolLayer1 = MaxPoolingLayer 2
 
-getX s n = (/ 256) <$> getImage s n
+  -- Second convolutional layer: 16 3x3 kernels
+  let conv2Kernels = replicateM 16 (randomKernel 3 0.1)
+  conv2Biases  <- replicateM 16 (gauss 0.01)
+  let convLayer2 = ConvLayer (conv2Kernels, conv2Biases)
 
-getLabel :: Num b => BL.ByteString -> GHC.Int.Int64 -> b
-getLabel s n = fromIntegral $ BS.index s (n + 8)
+  -- Second max pooling layer with pool size 2×2
+  let poolLayer2 = MaxPoolingLayer 2
 
-getY :: Num b => BL.ByteString -> GHC.Int.Int64 -> [b]
-getY s n = fromIntegral . fromEnum . (getLabel s n ==) <$> [0 .. 9]
+  -- Fully connected layer 1: 8464 -> 100
+  fc1Biases  <- replicateM 100 (gauss 0.01)
+  fc1Weights <- replicateM 100 (replicateM 8464 (gauss 0.01))
+  let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
 
-render :: (Integral a) => a -> Char
-render n = let s = " .:oO@" in s !! (fromIntegral n * length s `div` 256)
+  -- Fully connected layer 2: 100 -> 2 (one for each fruit type)
+  fc2Biases  <- replicateM 2 (gauss 0.01)
+  fc2Weights <- replicateM 2 (replicateM 100 (gauss 0.01))
+  let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
 
-train :: [[Float]] -> [[Float]] -> [[Float]] -> [[Float]] -> IO ()
-train trainI trainL testI testL = do
-  -- initialModel <- newBrain [30000, 512, 2] -- 243 / 1026
+  return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
 
-  -- Apple 6, apple 10, banana 1, banana 3, pear 1
-  -- [30k, 20, 3] + 40 training items      => 700/1026
-  -- [30k, 20, 3] + complete training data => 264/1026
+\end{code}
+The newModelFC function returns a newly initialized, untrained fully connected neural network without any convolutional or maxPooling layers.
+\begin{code}
+-- Model without convolutional layers
+newModelFC :: IO NeuralNetwork
+newModelFC = do
+  -- Fully connected layer 1: 30000 -> 100
+  fc1Biases  <- replicateM 100 (gauss 0.01)
+  fc1Weights <- replicateM 100 (replicateM 30000 (gauss 0.01))
+  let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
 
-  -- Apple 6, apple 10, banana 1, banana 3
-  -- [30000, 32, 3] + 40 training items      => 826/826
-  -- [30000, 32, 2] + complete training data => 802/826
-  -- Initialize the model
-  let modelFile = "trained_model.bin"
+  -- Fully connected layer 1: 100 -> 2
+  fc2Biases  <- replicateM 2 (gauss 0.01)
+  fc2Weights <- replicateM 2 (replicateM 100 (gauss 0.01))
+  let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
 
-  -- Check if the model file exists
-  modelExists <- doesFileExist modelFile
+  return [fcLayer1, fcLayer2]
+\end{code}
+The forwardPass function propogates an Image through the network to get the predicted probabilities of the network.
+It recursively calls the feedForwards function for the convolutional layers and the max pooling layers as those functions have the same paramters.
+For the fully connected layers, it calls the calculateFullyConnectedLayerOutput to get the final prediction of the fully connected layers.
+\begin{code}
+forwardPass :: Image -> NeuralNetwork -> ([Float], [Image])
+forwardPass inputImage network =
+  let (outputs, images) = foldl propagateLayer ([], [inputImage]) network
+      finalOutput = head outputs
+  in (finalOutput, images)
+  where
+    propagateLayer (outputs, images@(prevImage:_)) layer =
+      case layer of
+        ConvLayer convLayer -> (outputs, applyConvLayer prevImage convLayer : images)
+        MaxPoolingLayer poolSize -> (outputs, applyMaxPoolingLayer prevImage poolSize : images)
+        FullyConnected fcLayer -> (softmax (calculateFullyConnectedLayerOutput (flattenImage prevImage) fcLayer) : outputs, images)
 
-  if modelExists
-    then do
-      -- Load the model from the file
-      smartModel <- loadModel modelFile
-      putStrLn "Model loaded from trained_model.bin"
+backpropFullyConnected :: Float -> [Float] -> [Float] -> (Biases, Weights) -> ((Biases, Weights), [Float])
+backpropFullyConnected learningrate inputs propagatedError (biases, weights) =
+  let layerOutput = calculateFullyConnectedLayerOutput inputs (biases, weights)
+      -- Compute the derivative of the activation function (ReLU).
+      activationDerivatives = map reLuDerivative layerOutput
+      -- Compute the delta for this layer by multiplying the propagated error with the derivative.
+      delta = zipWith (*) propagatedError activationDerivatives
+      -- Compute gradients for biases and weights.
+      biasGradients = map (learningrate *) delta
+      weightGradients = [[learningrate * x * d | d <- delta] | x <- inputs]
+      -- Update parameters by subtracting the gradients.
+      newBiases = zipWith (-) biases biasGradients
+      newWeights = zipWith (zipWith (-)) weights weightGradients
+      -- Propagate error to the previous layer using the original weights.
+      newPropagatedError = [sum $ zipWith (*) delta col | col <- transpose weights]
+  in ((newBiases, newWeights), newPropagatedError)
+\end{code}
 
-      -- Test the loaded model
-      let bestOf = fst . maximumBy (comparing snd) . zip ([0 ..] :: [Float])
-      let guesses = bestOf . (`feedForward` smartModel) <$> testI
-      let answers = bestOf <$> testL
-      putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
+The replaceLayer function updates a layer of the network with its new weights and biases by replacing it with the layer that has the updated values after the backwards propogation.
+\begin{code}
+replaceLayer :: NeuralNetwork -> Layer -> Layer -> NeuralNetwork
+replaceLayer [] _ _ = []
+replaceLayer (l:ls) oldLayer newLayer
+  | l == oldLayer = newLayer : ls
+  | otherwise     = l : replaceLayer ls oldLayer newLayer
+\end{code}
 
-      print (head guesses, head answers, head testL)
-    else do
-      -- Train the model
-      initialModel <- newBrain [30000, 32, 2]
-      let smartModel = foldl' (\net (input, label) -> learn input label net) initialModel $ zip trainI trainL
+The trainIteration function performs a single training iteration.
+First, the forwards pass is computed to get the prediction of the model on an input image.
+Then the error is calculated between the prediction and the actual type of fruit in the image. This error is then propogated through the network using the backpropagateLayer function to update the weights and biases of the fully connected layers.
+\begin{code}
+trainIteration :: NeuralNetwork -> (Image, [Float]) -> Float -> IO NeuralNetwork
+trainIteration model (inputImage, targetOutput) learningRate = do
+  let (outputs, intermediateImages) = forwardPass inputImage model
+      initialError = crossEntropyDerivative outputs targetOutput
+  (updatedModel, _) <- foldM (backpropagateLayer learningRate) (model, initialError) (zip (reverse model) (reverse intermediateImages))
+  return updatedModel
+  where
+    backpropagateLayer :: Float -> (NeuralNetwork, [Float]) -> (Layer, Image) -> IO (NeuralNetwork, [Float])
+    backpropagateLayer lr (currentModel, errorToPropagate) (layer, layerInput) =
+      case layer of
+        FullyConnected fcLayer -> do
+          let flatInput = flattenImage layerInput
+              (updatedFC, newError) = backpropFullyConnected lr flatInput errorToPropagate fcLayer
+          return (replaceLayer currentModel layer (FullyConnected updatedFC), newError)
+        _ -> return (currentModel, errorToPropagate)
 
-      -- Save the trained model to a file
-      saveModel modelFile smartModel
-      putStrLn "Model saved to trained_model.bin"
+\end{code}
+the trainModel function trains the model for $n$ epochs by calling the trainIteration for every image in the training set.
+\begin{code}
+trainModel :: NeuralNetwork -> [(Image, [Float])] -> Int -> Float -> IO NeuralNetwork
+trainModel initialModel trainingData epochs learningRate = do
+  foldM trainEpoch initialModel [1..epochs]
+  where
+    trainEpoch model epoch = do
+      putStrLn $ "Epoch " ++ show epoch ++ "/" ++ show epochs
+      foldM (\currentModel img -> trainIteration currentModel img learningRate) model trainingData
+\end{code}
 
-      -- Test the model
-      let bestOf = fst . maximumBy (comparing snd) . zip ([0 ..] :: [Float])
-      let guesses = bestOf . (`feedForward` smartModel) <$> testI
-      let answers = bestOf <$> testL
-      putStrLn $ show (sum $ fromEnum <$> zipWith (==) guesses answers) ++ " / " ++ show (length testL)
+\hide {
+\begin{code}
+evaluateModel :: NeuralNetwork -> [(Image, [Float])] -> IO ()
+evaluateModel trainedModel testData = do
+    let testResults = map (\(img, label) ->
+            let prediction = predictFruit trainedModel img
+                expectedFruit = case label of
+                    [1.0, 0.0] -> Apple
+                    [0.0, 1.0] -> Banana
+                 --   [0.0, 0.0, 1.0] -> Pear
+                    _ -> error "Invalid label"
+            in prediction == expectedFruit
+            ) testData
 
-      print (head guesses, head answers, head testL)
-  return ()
+    let accuracy = ((fromIntegral (length (filter id testResults)) / fromIntegral (length testResults)) * 100) :: Double
 
--- | Save the neural network model to a file
+    putStrLn $ "Test Accuracy: " ++ show accuracy ++ "%"
+
+predictFruit :: NeuralNetwork -> Image -> FruitType
+predictFruit model image = toEnum (argmax (feedForwardImage image model))
+
+-- Model Persistence
 saveModel :: FilePath -> NeuralNetwork -> IO ()
 saveModel filePath model = BL.writeFile filePath (encode model)
 
--- | Load the neural network model from a file
 loadModel :: FilePath -> IO NeuralNetwork
 loadModel filePath = decode <$> BL.readFile filePath
-
 \end{code}
+}

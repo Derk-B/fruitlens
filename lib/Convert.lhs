@@ -6,10 +6,11 @@
 
 module Convert where
 
-import AI (train)
+import AI (trainModel, Image, newModelFC, newModelCNN, predictFruit, evaluateModel, loadModel, saveModel)
 import Codec.Picture
 import qualified Data.Bifunctor
 import qualified Data.Functor
+import Data.List.Split (chunksOf)
 import Data.Maybe (mapMaybe)
 import Data.Vector.Storable (toList)
 import GHC.Word (Word8)
@@ -69,11 +70,34 @@ getImagesAndLabels path = do
 
   return seperateBytesAndLabels
 
+convertImageForCNN :: [Float] -> [[[Float]]]
+convertImageForCNN xs = chunksOf 100 (chunksOf 3 xs)
+
 convert :: IO ()
 convert = do
   (trainI, trainL) <- getImagesAndLabels "Training/"
   (testI, testL) <- getImagesAndLabels "Test/"
-  train trainI trainL testI testL
+
+  let trainingData :: [(AI.Image, [Float])]
+      trainingData = zip (map convertImageForCNN trainI) trainL
+
+  let testData :: [(AI.Image, [Float])]
+      testData = zip (map convertImageForCNN testI) testL
+
+  -- Check if a saved model exists
+  modelExists <- doesFileExist "trained_model.bin"
+  _ <- if modelExists
+    then do
+      putStrLn "Loading saved model..."
+      loadModel "trained_model.bin"
+    else do
+      initialModel <- newModelFC
+      trainedModel <- trainModel initialModel trainingData 10 0.01
+      evaluateModel trainedModel testData
+      saveModel "trained_model.bin" trainedModel
+      putStrLn "Model saved to model.bin."
+      return trainedModel
+
   return ()
 
 \end{code}
