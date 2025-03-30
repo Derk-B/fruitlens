@@ -243,7 +243,9 @@ The \verb|randomKernel| function creates new convolution kernels for the convolu
 Originaly, the kernels were initialized with completely random values, which could then be learned by also performing backwards propogation on the convolutional layers.
 This would allow the model to train kernels to pick up on specific features in the images. However, implementing the backwards propogation for the convolutional layers was not succesful.
 Now, the randomKernel function returns a gaussian convolutional kernel that is always initialized with the same distribution as to not introduce random noise into the input layer of the fully connected network,
-However, this does introduce "blurring" of the input data. The CNN will therefore not perform nearly as well as a CNN that also trains its convolutional layers.
+However, this does introduce "blurring" of the input data. This CNN will therefore not perform nearly as well as a CNN that also trains its convolutional layers.
+The 2D gaussian convolution kernel is defined as: $G^s(x, y) = \frac{1}{2 \pi s^2}\exp{- \frac{x^2 + y^2}{2s^2}}$.
+The gaussian function has a value greater than 0 across its entire domain, but we limit it to the size with which the function is called to create a new kernel.
 \begin{code}
 -- randomKernel :: Int -> Int -> IO Kernel
 -- randomKernel i j = replicateM i (replicateM j (gauss 0.001))
