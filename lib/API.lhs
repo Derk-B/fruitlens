@@ -21,11 +21,8 @@ import qualified Data.ByteString.Char8 as BC
 import Data.Vector.Storable (toList)
 import AI (loadModel, predictFruit, NeuralNetwork, FruitType(Apple, Banana))
 import Utils (convertImageForCNN)
-import Data.List (maximumBy)
-import Data.Ord (comparing)
 import Web.Scotty (ActionM, get, html, json, jsonData, post, scotty, middleware)
 import Network.Wai.Middleware.Cors
-import qualified Network.Wai as Wai
 
 appCorsResourcePolicy :: CorsResourcePolicy
 appCorsResourcePolicy = simpleCorsResourcePolicy

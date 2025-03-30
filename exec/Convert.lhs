@@ -6,11 +6,10 @@
 
 module Convert where
 
-import FruitLens (trainModel, Image, newModelFC, newModelCNN, predictFruit, evaluateModel, loadModel, saveModel, convertImageForCNN)
+import FruitLens (trainModel, Image, newModelFC, evaluateModel, loadModel, saveModel, convertImageForCNN)
 import Codec.Picture
 import qualified Data.Bifunctor
 import qualified Data.Functor
-import Data.List.Split (chunksOf)
 import Data.Maybe (mapMaybe)
 import Data.Vector.Storable (toList)
 import GHC.Word (Word8)
