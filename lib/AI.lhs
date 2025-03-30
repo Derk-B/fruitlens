@@ -1,5 +1,5 @@
+\hide {
 \begin{code}
-
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
@@ -8,19 +8,38 @@ module AI where
 import Codec.Compression.GZip (decompress)
 import Control.Monad
 import qualified Data.ByteString.Lazy as BS
-import Data.List (foldl', maximumBy, transpose)
+import Data.List (maximumBy, transpose)
 import Data.Ord
 import qualified GHC.Int
 import System.Random
-import Utils (gauss)
+import Utils (gauss, gaussian)
 import Data.Binary (encode, decode)
 import qualified Data.ByteString.Lazy as BL
 import System.Directory (doesFileExist)
+\end{code}
+}
 
--- Fruit types that can be recognized by the neural network
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.99\linewidth]{assets/conv.png}
+  \caption{Example of a convolution being applied to an image.}
+\end{figure}
+
+Becasue the goal of this project is to recognise fruits in images, we can exploit
+the spatial structure of these images. As pixels are related to their neighbours,
+we can use convolutional filters to extract spatial information of a region in the
+input image. The resulting value will therefore encode information about the value of
+a given pixel, as well as its neighbouring pixels. This will make the model more robust against
+images that are shifted or rotated as compared to the images in the training set.
+\begin{code}
+-- FruitType lists the types of fruit that can be recognised by the model.
 data FruitType = Apple | Banana
   deriving (Show, Eq, Enum, Bounded)
+\end{code}
 
+In order to make the code of the neural network more readable, types are
+\begin{code}
 type Biases = [Float]
 type PoolSize = Int
 type Weights = [[Float]]
@@ -124,14 +143,32 @@ feedForwardFullyConnected =
              _ -> error "feedForwardFullyConnected: Expected only fully connected layers."
         )
 
-randomKernel :: Int -> Int -> IO Kernel
-randomKernel i j = replicateM i (replicateM j (gauss 0.001))
+-- randomKernel :: Int -> Int -> IO Kernel
+-- randomKernel i j = replicateM i (replicateM j (gauss 0.001))
+-- https://staff.fnwi.uva.nl/r.vandenboomgaard/ComputerVision/LectureNotes/IP/LocalStructure/GaussianDerivatives.html
+randomKernel :: Int -> Float -> Kernel
+randomKernel size sigma = map (map (/ total)) kernel
+  where
+    center = fromIntegral (size `div` 2)
+    kernel = [[gaussian (fromIntegral i - center) (fromIntegral j - center) sigma
+                 | j <- [0 .. size - 1]]
+               | i <- [0 .. size - 1]]
+    total = sum (map sum kernel)
 
+\end{code}
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.99\linewidth]{assets/cnn.jpg}
+  \caption{Example of the architecture of a Convolutional Neural Network.}
+\end{figure}
+
+\begin{code}
 -- WIP with CNN
 newModelCNN :: IO NeuralNetwork
 newModelCNN = do
   -- First convolutional layer: 8 kernels (3×3)
-  conv1Kernels <- replicateM 8 (randomKernel 3 3)
+  let conv1Kernels = replicateM 8 (randomKernel 3 1.0)
   conv1Biases  <- replicateM 8 (gauss 0.01)
   let convLayer1 = ConvLayer (conv1Kernels, conv1Biases)
 
@@ -139,7 +176,7 @@ newModelCNN = do
   let poolLayer1 = MaxPoolingLayer 2
 
   -- Second convolutional layer: 16 3x3 kernels
-  conv2Kernels <- replicateM 16 (randomKernel 3 3)
+  let conv2Kernels = replicateM 16 (randomKernel 3 1.0)
   conv2Biases  <- replicateM 16 (gauss 0.01)
   let convLayer2 = ConvLayer (conv2Kernels, conv2Biases)
 
