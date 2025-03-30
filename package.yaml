@@ -75,7 +75,7 @@ executables:
 
 tests:
   fruitlens-test:
-    main:                simpletests.lhs
+    main:                TrainingTests.lhs
     source-dirs:         test
     dependencies:
       - fruitlens

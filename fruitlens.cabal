@@ -144,7 +144,7 @@ executable fruitlens-exe
 
 test-suite fruitlens-test
   type: exitcode-stdio-1.0
-  main-is: simpletests.lhs
+  main-is: TrainingTests.lhs
   other-modules:
       Paths_fruitlens
   autogen-modules:
