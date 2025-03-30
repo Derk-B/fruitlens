@@ -11,7 +11,7 @@
 \maketitle
 
 \begin{abstract}
-This report outlines a group project as part of the Functional Programming course. The project involved developing a neural network application using Haskell, equipped with both training and inference capabilities. The application is mainly targeted at fruit classification using a specific dataset. The application is further enhanced by a web backend, facilitating accessibility and deployment, as well as an Android mobile application to support on-the-go usage, emphasizing the integration of functional programming paradigms in practical machine learning and application development.
+This report outlines a group project as part of the Functional Programming course. The project involved developing a neural network application using Haskell, equipped with both training and inference capabilities. The application is mainly targeted at fruit classification using a specific dataset. The application is further enhanced by a web backend, facilitating accessibility and deployment, as well as a simple web application to support user-friendly usage, emphasizing the integration of functional programming paradigms in practical machine learning and application development.
 \end{abstract}
 
 \vfill
@@ -78,19 +78,23 @@ This feature extraction is a form of dimensionality reduction---it transforms a 
 Hidden layers form the core processing component of neural networks, transforming input features into increasingly abstract representations before producing the final output. In the Haskell neural network implementation we're examining, hidden layers are handled as part of the general layer structure, with specific operations applied as data flows through the network.
 
 The hidden layers are represented using the same data structures as all other layers in the network. Let's examine the relevant type definitions:
+
 \begin{code}
 type Biases = [Float]
 type Weights = [[Float]]
 type Layer = (Biases, Weights)
 type NeuralNetwork = [Layer]
 \end{code}
+
 Each layer consists of:
+
 \begin{itemize}
-\item A vector of biases (one bias per neuron in the layer)
-\item A matrix of weights (connection weights from each input to each neuron)
+    \item A vector of biases (one bias per neuron in the layer)
+    \item A matrix of weights (connection weights from each input to each neuron)
 \end{itemize}
 
 Hidden layers are initialized along with the rest of the network in the \texttt{newModel} function:
+
 \begin{code}
 newModel :: [Int] -> IO NeuralNetwork
 newModel [] = error "newModel: cannot initialize layers with [] as input"
@@ -99,6 +103,7 @@ biases <- mapM (\n -> replicateM n (gauss 0.01)) outputLayers
 weights <- zipWithM (\m n -> replicateM n $ replicateM m $ gauss 0.01) layers outputLayers
 return (zip biases weights)
 \end{code}
+
 Let's break down how hidden layers are initialized:
 \begin{enumerate}
     \item The \texttt{layers} parameter specifies the number of neurons in each layer.
@@ -113,7 +118,8 @@ Let's break down how hidden layers are initialized:
     \item For the hidden layer with 10 neurons receiving 6 inputs, we create:
         \begin{itemize}
             \item A bias vector of length 10
-            \item A weight matrix of size 10×6 \end{itemize}
+            \item A weight matrix of size 10×6
+        \end{itemize}
 \end{enumerate}
 
 The core computation that occurs in hidden layers is implemented in the \texttt{calculateLayerOutput} function:
@@ -168,16 +174,16 @@ The output of the model should be a 1D array of floats. Each float value represe
 
 \section{Application Overview}
 
-\subsection{Server Side}
-The most important part of this project is running on the server side. This includes the neural network training algorithm and the REST API that allows the user to easily use the fruit prediction software.
+\subsection{Server Side (Scotty Web API)}
+The most important part of this project is running on the server side. This includes the neural network training and inference algorithm, and the RESTful API that allows the user to easily use the fruit prediction software. 
 
 \subsection{Client Side (Web App)}
-The user can manually convert a JPEG image to a base64 encoded value and send that to the API.
-To streamline the process of image submission, we have developed a web app using vanilla JavaScript and HTML. This app allows users to upload pictures of fruits directly from their device. The app automatically converts the captured JPEG image into a base64-encoded string and sends it to the API. This makes this process more accessible and user-friendly. It only supports JPG images.
+The user can manually convert a JPEG image to a Base64 encoded value and send that to the API.
+To streamline the process of image submission, we have developed a web app using vanilla JavaScript and HTML. This simple web app allows users to upload pictures of fruits directly from their device. The app automatically converts the captured JPEG image into a base64-encoded string and sends it to the API. This makes this process more accessible and user-friendly. Currently, it only supports JPG images.
 
-Once the image is sent to the API, it is processed by a neural network, which predicts the type of fruit in the image. The prediction is then sent back to the app. Finally, the app displays the predicted fruit label to the user.
+Once the image is sent to the API, it is processed by a neural network, which predicts the type of fruit in the image. The prediction is then sent back to the app. Finally, the app displays the predicted fruit classification to the user. 
 
-The code for the app has been omitted from this report, as it was deemed less relevant due to the absence of Haskell code.
+The code for the app has been omitted from this report, as it was deemed less relevant due to the absence of Haskell code. 
 
 \input{Howto.tex}
 
