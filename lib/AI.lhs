@@ -20,7 +20,7 @@ import qualified Data.ByteString.Lazy as BL
 
 \begin{figure}
   \centering
-  \includegraphics[width=0.99\linewidth]{assets/conv.png}
+  \includegraphics[width=0.5\linewidth]{assets/conv.png}
   \caption{Example of a convolution being applied to an image.}
 \end{figure}
 
@@ -204,12 +204,14 @@ feedForwardFullyConnected =
         )
 
 \end{code}
+
 The feedForwardImage function forward feeds an image through the netire network.
 The convolutional and max pooling
 layers are applied on the image until a fully connected layer is encountered,
 then the image is flattened and processed as a 1D list of floats to predict
-the fruit. The result will be a list of size n_{fruits} and the index with the
+the fruit. The result will be a list of size n\_{fruits} and the index with the
 maximum value will be the fruit the model predicted is in the image.
+
 \begin{code}
 feedForwardImage :: Image -> NeuralNetwork -> [Float]
 feedForwardImage img (layer:layers) =
@@ -251,16 +253,17 @@ randomKernel size sigma = map (map (/ total)) kernel
 The newModelCNN function returns a newly initialized, untrained CNN. \ref{fig:cnn} shows a visual example of the architecture of this network.
 The features of the image are extracted in the convolutional and maxPooling layers, and the classification takes place in the fully connected layers.
 This network also consits of two convolutional layers with maxPooling layers in between. The output of the last maxPooling layer is then flattened and will then be used as the input vector of the fully connected layers.
-This model consists of two fully connected layers, with the first going from 8464 input neurons to 100 output neurons, and the second layer goes from 100 input neurons to n_{fruittypes} output neurons, with one output neuron for each fruit type that the model can recognise.
+This model consists of two fully connected layers, with the first going from 8464 input neurons to 100 output neurons, and the second layer goes from 100 input neurons to $n\_{fruittypes}$ output neurons, with one output neuron for each fruit type that the model can recognise.
+
 \begin{code}
 newModelCNN :: IO NeuralNetwork
 newModelCNN = do
-  -- First convolutional layer: 8 kernels (3×3)
+  -- First convolutional layer: 8 kernels (3x3)
   let conv1Kernels = replicateM 8 (randomKernel 3 0.1)
   conv1Biases  <- replicateM 8 (gauss 0.01)
   let convLayer1 = ConvLayer (conv1Kernels, conv1Biases)
 
-  -- First max pooling layer with pool size 2×2
+  -- First max pooling layer with pool size 2x2
   let poolLayer1 = MaxPoolingLayer 2
 
   -- Second convolutional layer: 16 3x3 kernels
@@ -268,7 +271,7 @@ newModelCNN = do
   conv2Biases  <- replicateM 16 (gauss 0.01)
   let convLayer2 = ConvLayer (conv2Kernels, conv2Biases)
 
-  -- Second max pooling layer with pool size 2×2
+  -- Second max pooling layer with pool size 2x2
   let poolLayer2 = MaxPoolingLayer 2
 
   -- Fully connected layer 1: 8464 -> 100
