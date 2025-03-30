@@ -6,7 +6,7 @@
 
 module Convert where
 
-import AI (trainModel, Image, newModelFC, newModelCNN, predictFruit, evaluateModel)
+import AI (trainModel, Image, newModelFC, newModelCNN, predictFruit, evaluateModel, loadModel, saveModel)
 import Codec.Picture
 import Codec.Picture.Types
 import qualified Data.Bifunctor
@@ -85,12 +85,20 @@ convert = do
   let testData :: [(AI.Image, [Float])]
       testData = zip (map convertImageForCNN testI) testL
 
-  initialModel <- newModelFC
+  -- Check if a saved model exists
+  modelExists <- doesFileExist "trained_model.bin"
+  finalModel <- if modelExists
+    then do
+      putStrLn "Loading saved model..."
+      loadModel "trained_model.bin"
+    else do
+      initialModel <- newModelFC
+      trainedModel <- trainModel initialModel trainingData 3 0.01
+      saveModel "trained_model.bin" trainedModel
+      putStrLn "Model saved to model.bin."
+      return trainedModel
 
-  finalModel <- trainModel initialModel trainingData 3 0.01
-  putStrLn "Training complete."
-
-  evaluateModel finalModel  testData
-
+  putStrLn "Evaluating model..."
+  evaluateModel finalModel testData
 
 \end{code}

@@ -1,5 +1,7 @@
 \hide {
 \begin{code}
+
+{-# LANGUAGE DeriveGeneric #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
@@ -12,6 +14,9 @@ import Data.List (maximumBy, transpose)
 import Data.Ord
 import qualified GHC.Int
 import System.Random
+import Utils (gauss)
+import Data.Binary (encode, decode, Binary)
+import GHC.Generics (Generic)
 import Utils (gauss, gaussian)
 import Data.Binary (encode, decode)
 import qualified Data.ByteString.Lazy as BL
@@ -45,11 +50,12 @@ type Weights = [[Float]]
 type FullyConnectedLayer = (Biases, Weights)
 type Kernel = [[Float]]
 type Image = [[[Float]]]
-
 data Layer = ConvLayer ConvolutionalLayer
            | MaxPoolingLayer PoolSize
            | FullyConnected FullyConnectedLayer
-           deriving (Eq)
+           deriving (Eq, Generic)
+
+instance Binary Layer
 type ConvolutionalLayer = ([Kernel], Biases)
 type NeuralNetwork = [Layer]
 
@@ -292,10 +298,10 @@ predictFruit :: NeuralNetwork -> Image -> FruitType
 predictFruit model image = toEnum (argmax (feedForwardImage image model))
 
 -- Model Persistence
--- saveModel :: FilePath -> NeuralNetwork -> IO ()
--- saveModel filePath model = BL.writeFile filePath (encode model)
+saveModel :: FilePath -> NeuralNetwork -> IO ()
+saveModel filePath model = BL.writeFile filePath (encode model)
 
--- loadModel :: FilePath -> IO NeuralNetwork
--- loadModel filePath = decode <$> BL.readFile filePath
+loadModel :: FilePath -> IO NeuralNetwork
+loadModel filePath = decode <$> BL.readFile filePath
 
 \end{code}
