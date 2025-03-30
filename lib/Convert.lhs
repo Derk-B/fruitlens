@@ -6,7 +6,7 @@
 
 module Convert where
 
-import AI (trainModel, Image, newModel, predictFruit, evaluateModel)
+import AI (trainModel, Image, newModelFC, newModelCNN, predictFruit, evaluateModel)
 import Codec.Picture
 import Codec.Picture.Types
 import qualified Data.Bifunctor
@@ -85,7 +85,7 @@ convert = do
   let testData :: [(AI.Image, [Float])]
       testData = zip (map convertImageForCNN testI) testL
 
-  initialModel <- newModel
+  initialModel <- newModelFC
 
   finalModel <- trainModel initialModel  trainingData 10 0.01
   putStrLn "Training complete."
