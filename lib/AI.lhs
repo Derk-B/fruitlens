@@ -22,13 +22,15 @@ import qualified Data.ByteString.Lazy as BL
   \centering
   \includegraphics[width=0.5\linewidth]{assets/conv.png}
   \caption{Example of a convolution being applied to an image.}
+  \ref{fig:conv}
 \end{figure}
 
 Becasue the goal of this project is to recognise fruits in images, we can exploit
 the spatial structure of these images. As pixels are related to their neighbours,
 we can use convolutional filters to extract spatial information of a region in the
 input image. The resulting value will therefore encode information about the value of
-a given pixel, as well as its neighbouring pixels. This will make the model more robust against
+a given pixel, as well as its neighbouring pixels. Figure \ref{fig:conv} shows how an input image is convolved using a convolution filter.
+The convolution filter produces a new value that takes in information of the neighbourhood in the input image. This will make the model more robust against
 images that are shifted or rotated as compared to the images in the training set.
 \begin{code}
 -- FruitType lists the types of fruit that can be recognised by the model.
@@ -63,7 +65,7 @@ type ConvolutionalLayer = ([Kernel], Biases)
 type NeuralNetwork = [Layer]
 
 \end{code}
-The activation functions add non-linearity to the model. Without the activation function, the model could only learn linear relationships.
+The activation function adds non-linearity to the model. Without the activation function, the model could only learn linear relationships.
 ReLu is used as it is computationaly efficient, it simply outputs the input value if it is greater than 0, and 0 otherwise.
 The derivative of the activation function is needed during the backpropogation step of the model.
 \begin{code}
@@ -80,7 +82,6 @@ reLuDerivative x | x > 0     = 1
 The \verb|softMax| function is used in the final layer fully connected layer of the model in order to turn the final layer's output into a probability distribution.
 Very large negative values in the output layer get mapped to probability values around 0, values around 0 get mapped to 0.5 and very positive values get mapped to values around 1.
 The output of the softMax function will then be used by the argMax function to extract the final prediction. The index of the vector after the softMax function that has the highest value will be picked as the models prediction.
-
 \begin{equation}
 s(x_i) = \frac{e^{x_i}}{\sum^{n}_{j=1}{e^{x_j}}}
 \end{equation}
@@ -98,6 +99,7 @@ argmax xs = snd $ maximumBy (comparing fst) (zip xs [0..])
 \end{code}
 
 The \verb|crossEntropyLoss| function computes the cross entropy loss between the predicted probabilities and the true target values, which are encoded as a one-hot vector where only the index corresponding to the correct fruit has a probability of 1.
+For example, the one-hot vector for apple is [1, 0], where the first index corresponds to an image containing an apple and therefore has the value 1.
 This loss measures the difference between the predicted probability distribution and the actual fruit type.
 It penalizes predictions that deviate from the true targets by taking the negative log likelihood of the predicted probability for the correct class.
 By clamping the values between $10^{-15}$ and $1 - 10^{-15}$, the case of taking the log of 0 is avoided which would result in an undefined result.
@@ -264,7 +266,7 @@ randomKernel size sigma = map (map (/ total)) kernel
   \label{fig:cnn}
 \end{figure}
 
-The \verb|newModelCNN| function returns a newly initialized, untrained CNN. \ref{fig:cnn} shows a visual example of the architecture of this network.
+The \verb|newModelCNN| function returns a newly initialized, untrained CNN. Figure \ref{fig:cnn} shows a visual example of the architecture of this network.
 The features of the image are extracted in the convolutional and maxPooling layers, and the classification takes place in the fully connected layers.
 This network also consits of two convolutional layers with maxPooling layers in between. The output of the last maxPooling layer is then flattened and will then be used as the input vector of the fully connected layers.
 This model consists of two fully connected layers, with the first going from 8464 input neurons to 100 output neurons, and the second layer goes from 100 input neurons to n\_{fruittypes} output neurons, with one output neuron for each fruit type that the model can recognise.
@@ -355,17 +357,18 @@ backpropFullyConnected learningrate inputs propagatedError (biases, weights) =
 \end{code}
 
 The \verb|replaceLayer| function updates a layer of the network with its new weights and biases by replacing it with the layer that has the updated values after the backwards propogation.
+This function is used after the backpropogation function has calculated the new weights and biases of a layer in order to update the model.
 \begin{code}
 replaceLayer :: NeuralNetwork -> Layer -> Layer -> NeuralNetwork
 replaceLayer [] _ _ = []
 replaceLayer (l:ls) oldLayer newLayer
   | l == oldLayer = newLayer : ls
-  | otherwise     = l : replaceLayer ls oldLayer newLayer
+  | otherwise = l : replaceLayer ls oldLayer newLayer
 \end{code}
 
 The \verb|trainIteration| function performs a single training iteration.
 First, the forwards pass is computed to get the prediction of the model on an input image.
-Then the error is calculated between the prediction and the actual type of fruit in the image. This error is then propogated through the network using the backpropagateLayer function to update the weights and biases of the fully connected layers.
+Then the error is calculated between the prediction and the actual type of fruit in the image. This error is then propogated through the network using the \verb|backpropagateLayer| function to update the weights and biases of the fully connected layers.
 
 \begin{code}
 trainIteration :: NeuralNetwork -> (Image, [Float]) -> Float -> IO NeuralNetwork
