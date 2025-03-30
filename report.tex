@@ -28,7 +28,7 @@ This report outlines a group project as part of the Functional Programming cours
 \subsection{Dataset}
 In this project, a fruit dataset, named Fruits-360 \cite{oltean_fruits-360_2017}, is used for training and testing the neural network.
 
-The dataset contains images of multiple types of fruits (Apple, Banana, and others), with each image in the format of $100 \times 100 \times 3$ (width, height, and channels). We selected apples and bananas from the dataset and used those images in the training of the network.
+The dataset contains images of multiple types of fruits (Apple, Banana, and others), with each image in the format of $100 \times 100 \times 3$ (width, height, and red, green, blue color channels). We selected apples and bananas from the dataset and used those images in the training of the network.
 
 % \input{lib/CNN.lhs}
 
@@ -180,23 +180,13 @@ The most important part of this project is running on the server side. This incl
 
 \subsection{Client Side (Web App)}
 The user can manually convert a JPEG image to a base64 encoded value and send that to the API.
-To streamline the process of image submission, we have developed a web app using vanillaJS and HTML. This app allows users to upload pictures of fruits directly from their device. The app automatically converts the captured JPEG image into a base64-encoded string and sends it to the API. This makes this process more accessible and user-friendly. It only supports JPG images.
+To streamline the process of image submission, we have developed a web app using vanilla JavaScript and HTML. This app allows users to upload pictures of fruits directly from their device. The app automatically converts the captured JPEG image into a base64-encoded string and sends it to the API. This makes this process more accessible and user-friendly. It only supports JPG images.
 
 Once the image is sent to the API, it is processed by a neural network, which predicts the type of fruit in the image. The prediction is then sent back to the app. Finally, the app displays the predicted fruit label to the user.
 
 The code for the app has been omitted from this report, as it was deemed less relevant due to the absence of Haskell code.
 
 \input{Howto.tex}
-
-% \input{lib/Syntax.lhs}
-
-% \input{lib/Prove.lhs}
-
-% \input{lib/Visual.lhs}
-
-% \input{exec/Main.lhs}
-
-% \input{test/simpletests.lhs}
 
 \input{Conclusion.tex}
 
