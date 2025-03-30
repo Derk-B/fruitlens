@@ -87,7 +87,7 @@ convert = do
 
   initialModel <- newModelFC
 
-  finalModel <- trainModel initialModel  trainingData 10 0.01
+  finalModel <- trainModel initialModel trainingData 3 0.01
   putStrLn "Training complete."
 
   evaluateModel finalModel  testData
