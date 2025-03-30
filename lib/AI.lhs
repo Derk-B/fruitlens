@@ -127,10 +127,9 @@ feedForwardFullyConnected =
 randomKernel :: Int -> Int -> IO Kernel
 randomKernel i j = replicateM i (replicateM j (gauss 0.001))
 
-
 -- WIP with CNN
-newModel :: IO NeuralNetwork
-newModel = do
+newModelCNN :: IO NeuralNetwork
+newModelCNN = do
   -- First convolutional layer: 8 kernels (3×3)
   conv1Kernels <- replicateM 8 (randomKernel 3 3)
   conv1Biases  <- replicateM 8 (gauss 0.01)
@@ -160,19 +159,29 @@ newModel = do
   return [convLayer1, poolLayer1, convLayer2, poolLayer2, fcLayer1, fcLayer2]
 
 -- Model without convolutional layers
---newModel :: IO NeuralNetwork
---newModel = do
-  -- Fully connected layer 1: 30000 -> 100
---  fc1Biases  <- replicateM 100 (gauss 0.01)
---  fc1Weights <- replicateM 100 (replicateM 30000 (gauss 0.01))
---  let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
+newModelFC :: IO NeuralNetwork
+newModelFC = do
+  -- Fully connected layer 1: 30000 -> 3000
+  fc1Biases  <- replicateM 3000 (gauss 0.01)
+  fc1Weights <- replicateM 3000 (replicateM 30000 (gauss 0.01))
+  let fcLayer1 = FullyConnected (fc1Biases, fc1Weights)
+
+  -- Fully connected layer 1: 3000 -> 1000
+  fc2Biases  <- replicateM 1000 (gauss 0.01)
+  fc2Weights <- replicateM 1000 (replicateM 3000 (gauss 0.01))
+  let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
+
+  -- Fully connected layer 2: 1000 -> 100
+  fc3Biases  <- replicateM 100 (gauss 0.01)
+  fc3Weights <- replicateM 100 (replicateM 1000 (gauss 0.01))
+  let fcLayer3 = FullyConnected (fc3Biases, fc3Weights)
 
   -- Fully connected layer 2: 100 -> 2 (one for each fruit type)
---  fc2Biases  <- replicateM 2 (gauss 0.01)
---  fc2Weights <- replicateM 2 (replicateM 100 (gauss 0.01))
---  let fcLayer2 = FullyConnected (fc2Biases, fc2Weights)
+  fc4Biases  <- replicateM 2 (gauss 0.01)
+  fc4Weights <- replicateM 2 (replicateM 100 (gauss 0.01))
+  let fcLayer4 = FullyConnected (fc4Biases, fc4Weights)
 
---  return [fcLayer1, fcLayer2]
+  return [fcLayer1, fcLayer2, fcLayer3, fcLayer4]
 
 forwardPass :: Image -> NeuralNetwork -> ([Float], [Image])
 forwardPass inputImage network =
@@ -191,7 +200,7 @@ backpropFullyConnected learningrate inputs propagatedError (biases, weights) =
   let layerOutput = calculateFullyConnectedLayerOutput inputs (biases, weights)
       -- Compute the derivative of the activation function (ReLU).
       activationDerivatives = map reLuDerivative layerOutput
-      -- Compute the delta for this layer by elementwise multiplying the propagated error
+      -- Compute the delta for this layer by multiplying the propagated error
       -- with the derivative.
       delta = zipWith (*) propagatedError activationDerivatives
       -- Compute gradients for biases and weights.
