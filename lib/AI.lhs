@@ -25,7 +25,7 @@ import qualified Data.ByteString.Lazy as BL
   \label{fig:conv}
 \end{figure}
 
-Becasue the goal of this project is to recognise fruits in images, we can exploit
+Because the goal of this project is to recognise fruits in images, we can exploit
 the spatial structure of these images. As pixels are related to their neighbours,
 we can use convolutional filters to extract spatial information of a region in the
 input image. The resulting value will therefore encode information about the value of
