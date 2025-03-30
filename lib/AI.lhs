@@ -82,6 +82,7 @@ reLuDerivative x | x > 0     = 1
 The \verb|softMax| function is used in the final layer fully connected layer of the model in order to turn the final layer's output into a probability distribution.
 Very large negative values in the output layer get mapped to probability values around 0, values around 0 get mapped to 0.5 and very positive values get mapped to values around 1.
 The output of the softMax function will then be used by the argMax function to extract the final prediction. The index of the vector after the softMax function that has the highest value will be picked as the models prediction.
+
 \begin{equation}
 s(x_i) = \frac{e^{x_i}}{\sum^{n}_{j=1}{e^{x_j}}}
 \end{equation}
@@ -244,7 +245,12 @@ Originaly, the kernels were initialized with completely random values, which cou
 This would allow the model to train kernels to pick up on specific features in the images. However, implementing the backwards propogation for the convolutional layers was not succesful.
 Now, the randomKernel function returns a gaussian convolutional kernel that is always initialized with the same distribution as to not introduce random noise into the input layer of the fully connected network,
 However, this does introduce "blurring" of the input data. This CNN will therefore not perform nearly as well as a CNN that also trains its convolutional layers.
-The 2D gaussian convolution kernel is defined as: $G^s(x, y) = \frac{1}{2 \pi s^2}\exp{- \frac{x^2 + y^2}{2s^2}}$.
+The 2D gaussian convolution kernel is defined as: 
+
+\begin{equation}
+G^s(x, y) = \frac{1}{2 \pi s^2}\exp{- \frac{x^2 + y^2}{2s^2}}
+\end{equation}
+
 The gaussian function has a value greater than 0 across its entire domain, but we limit it to the size with which the function is called to create a new kernel.
 \begin{code}
 -- randomKernel :: Int -> Int -> IO Kernel
