@@ -2,9 +2,9 @@ name:                fruitlens
 version:             0.1.0.0
 github:              "Derk-B/fruitlens"
 license:             BSD-3-Clause
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2025 Author name here"
+author:              "Derk-B"
+maintainer:          ""
+copyright:           ""
 
 extra-source-files:
 - README.md
@@ -63,6 +63,12 @@ library:
 executables:
   fruitlens-exe:
     main:                Main.lhs
+    source-dirs:         exec
+    dependencies:
+      - fruitlens
+      
+  convert-exe:
+    main:                Convert.lhs
     source-dirs:         exec
     dependencies:
       - fruitlens

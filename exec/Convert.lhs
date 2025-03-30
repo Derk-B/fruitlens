@@ -6,7 +6,7 @@
 
 module Convert where
 
-import AI (trainModel, Image, newModelFC, newModelCNN, predictFruit, evaluateModel, loadModel, saveModel)
+import FruitLens (trainModel, Image, newModelFC, newModelCNN, predictFruit, evaluateModel, loadModel, saveModel, convertImageForCNN)
 import Codec.Picture
 import qualified Data.Bifunctor
 import qualified Data.Functor
@@ -70,18 +70,17 @@ getImagesAndLabels path = do
 
   return seperateBytesAndLabels
 
-convertImageForCNN :: [Float] -> [[[Float]]]
-convertImageForCNN xs = chunksOf 100 (chunksOf 3 xs)
+
 
 convert :: IO ()
 convert = do
   (trainI, trainL) <- getImagesAndLabels "Training/"
   (testI, testL) <- getImagesAndLabels "Test/"
 
-  let trainingData :: [(AI.Image, [Float])]
+  let trainingData :: [(FruitLens.Image, [Float])]
       trainingData = zip (map convertImageForCNN trainI) trainL
 
-  let testData :: [(AI.Image, [Float])]
+  let testData :: [(FruitLens.Image, [Float])]
       testData = zip (map convertImageForCNN testI) testL
 
   -- Check if a saved model exists

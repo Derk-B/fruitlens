@@ -20,7 +20,7 @@ import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as BC
 import Data.Vector.Storable (toList)
 import AI (loadModel, predictFruit, NeuralNetwork, FruitType(Apple, Banana))
-import Convert (convertImageForCNN)
+import Utils (convertImageForCNN)
 import Data.List (maximumBy)
 import Data.Ord (comparing)
 import Web.Scotty (ActionM, get, html, json, jsonData, post, scotty, middleware)

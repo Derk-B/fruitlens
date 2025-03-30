@@ -9,9 +9,7 @@ version:        0.1.0.0
 description:    Please see the README on GitHub at <https://github.com/Derk-B/fruitlens#readme>
 homepage:       https://github.com/Derk-B/fruitlens#readme
 bug-reports:    https://github.com/Derk-B/fruitlens/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2025 Author name here
+author:         Derk-B
 license:        BSD-3-Clause
 build-type:     Simple
 extra-source-files:
@@ -31,7 +29,6 @@ library
   other-modules:
       AI
       API
-      Convert
       Utils
       Paths_fruitlens
   autogen-modules:
@@ -67,9 +64,49 @@ library
     , zlib
   default-language: Haskell2010
 
+executable convert-exe
+  main-is: Convert.lhs
+  other-modules:
+      Main
+      Paths_fruitlens
+  autogen-modules:
+      Paths_fruitlens
+  hs-source-dirs:
+      exec
+  ghc-options: -Wall
+  build-depends:
+      JuicyPixels
+    , JuicyPixels-extra
+    , QuickCheck
+    , aeson
+    , base >=4.7 && <5
+    , base16-bytestring
+    , base64-bytestring
+    , binary
+    , bytestring
+    , containers
+    , directory
+    , fruitlens
+    , gloss
+    , graphviz
+    , hspec
+    , lens
+    , mtl
+    , parsec
+    , random
+    , scotty
+    , split
+    , template-haskell
+    , vector
+    , wai
+    , wai-cors
+    , zlib
+  default-language: Haskell2010
+
 executable fruitlens-exe
   main-is: Main.lhs
   other-modules:
+      Convert
       Paths_fruitlens
   autogen-modules:
       Paths_fruitlens

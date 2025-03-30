@@ -6,6 +6,9 @@ cradle:
     - path: "./exec/Main.lhs"
       component: "fruitlens:exe:fruitlens-exe"
 
+    - path: "./exec/Convert.lhs"
+      component: "fruitlens:exe:convert-exe"
+
     - path: "./exec/Paths_fruitlens.hs"
       component: "fruitlens:exe:fruitlens-exe"
 
