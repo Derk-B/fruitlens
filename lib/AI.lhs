@@ -22,7 +22,7 @@ import qualified Data.ByteString.Lazy as BL
   \centering
   \includegraphics[width=0.5\linewidth]{assets/conv.png}
   \caption{Example of a convolution being applied to an image.}
-  \ref{fig:conv}
+  \label{fig:conv}
 \end{figure}
 
 Becasue the goal of this project is to recognise fruits in images, we can exploit
