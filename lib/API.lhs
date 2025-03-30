@@ -1,4 +1,4 @@
-\section{API Module}\label{sec:API}
+\section{Implementing RESTful API}\label{sec:API}
 
 This section is about the API module, which we implemented to improve ease of use and make it possible to send requests from the webpage and the app. We used the Scotty library to create a webserver that listens to the given port number
 

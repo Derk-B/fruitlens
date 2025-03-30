@@ -245,15 +245,15 @@ randomKernel size sigma = map (map (/ total)) kernel
 
 \begin{figure}
   \centering
-  \includegraphics[width=0.99\linewidth]{assets/cnn.jpg}
+  \includegraphics[width=0.9\linewidth]{assets/cnn.jpg}
   \caption{Example of the architecture of a Convolutional Neural Network.}
   \label{fig:cnn}
 \end{figure}
 
-The newModelCNN function returns a newly initialized, untrained CNN. \ref{fig:cnn} shows a visual example of the architecture of this network.
+The \verb|newModelCNN| function returns a newly initialized, untrained CNN. \ref{fig:cnn} shows a visual example of the architecture of this network.
 The features of the image are extracted in the convolutional and maxPooling layers, and the classification takes place in the fully connected layers.
 This network also consits of two convolutional layers with maxPooling layers in between. The output of the last maxPooling layer is then flattened and will then be used as the input vector of the fully connected layers.
-This model consists of two fully connected layers, with the first going from 8464 input neurons to 100 output neurons, and the second layer goes from 100 input neurons to $n\_{fruittypes}$ output neurons, with one output neuron for each fruit type that the model can recognise.
+This model consists of two fully connected layers, with the first going from 8464 input neurons to 100 output neurons, and the second layer goes from 100 input neurons to n\_{fruittypes} output neurons, with one output neuron for each fruit type that the model can recognise.
 
 \begin{code}
 newModelCNN :: IO NeuralNetwork
