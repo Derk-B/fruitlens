@@ -19,7 +19,8 @@ import Data.Aeson
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Char8 as BC
 import Data.Vector.Storable (toList)
-import AI (loadModel, feedForward, NeuralNetwork)
+import AI (loadModel, predictFruit, NeuralNetwork, FruitType(Apple, Banana))
+import Convert (convertImageForCNN)
 import Data.List (maximumBy)
 import Data.Ord (comparing)
 import Web.Scotty (ActionM, get, html, json, jsonData, post, scotty, middleware)
@@ -76,20 +77,17 @@ predictImage model = do
         Left err -> Web.Scotty.json $ object ["error" .= ("Image decoding failed: " ++ err)]
         Right dynImage -> do
           let normalizedPixels = convertImage dynImage
-              prediction = feedForward normalizedPixels model
-              fruitIndex = fst $ maximumBy (comparing snd) $ zip [0..] prediction
-              confidence = prediction !! fruitIndex
-              fruitType :: String
-              fruitType = case fruitIndex of
-                0 -> "apple"
-                1 -> "banana"
-                _ -> "unknown"
+              cnnFormatPixels = convertImageForCNN normalizedPixels
+              prediction = predictFruit model cnnFormatPixels
+              fruitType = case prediction of
+                Apple -> "apple"
+                Banana -> "banana"
 
-          -- Return both the prediction and confidence
+          -- Return the prediction (confidence is now handled internally by the AI module)
           Web.Scotty.json $
             object
               [ "prediction" .= (fruitType :: String),
-                "confidence" .= (confidence :: Float)
+                "confidence" .= (1.0 :: Float)  -- Placeholder
               ]
 \end{code}
 
